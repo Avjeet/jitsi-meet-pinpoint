@@ -41,9 +41,24 @@ interface IProps {
 }
 
 /**
+ * The state of the component.
+ */
+interface IState {
+    /**
+     * The countdown value in seconds before auto-acceptance.
+     */
+    countdown: number;
+}
+
+/**
  * Implements a dialog for remote control authorization.
  */
-class RemoteControlAuthorizationDialog extends Component<IProps> {
+class RemoteControlAuthorizationDialog extends Component<IProps, IState> {
+    /**
+     * Countdown timer reference.
+     */
+    _countdownTimer: number | null = null;
+
     /**
      * Initializes a new RemoteControlAuthorizationDialog instance.
      *
@@ -53,8 +68,57 @@ class RemoteControlAuthorizationDialog extends Component<IProps> {
     constructor(props: IProps) {
         super(props);
 
+        this.state = {
+            countdown: 5
+        };
+
         this._onCancel = this._onCancel.bind(this);
         this._onSubmit = this._onSubmit.bind(this);
+        this._updateCountdown = this._updateCountdown.bind(this);
+    }
+
+    /**
+     * Set up the countdown timer when the component mounts.
+     *
+     * @inheritdoc
+     */
+    override componentDidMount() {
+        this._countdownTimer = window.setInterval(this._updateCountdown, 1000);
+    }
+
+    /**
+     * Clear the countdown timer when the component unmounts.
+     *
+     * @inheritdoc
+     */
+    override componentWillUnmount() {
+        if (this._countdownTimer !== null) {
+            window.clearInterval(this._countdownTimer);
+            this._countdownTimer = null;
+        }
+    }
+
+    /**
+     * Updates the countdown timer and automatically accepts when it reaches zero.
+     *
+     * @private
+     * @returns {void}
+     */
+    _updateCountdown() {
+        this.setState(prevState => {
+            const countdown = prevState.countdown - 1;
+            
+            // Auto-accept when countdown reaches zero
+            if (countdown <= 0) {
+                if (this._countdownTimer !== null) {
+                    window.clearInterval(this._countdownTimer);
+                    this._countdownTimer = null;
+                }
+                this._onSubmit();
+            }
+            
+            return { countdown };
+        });
     }
 
     /**
@@ -77,6 +141,9 @@ class RemoteControlAuthorizationDialog extends Component<IProps> {
                 {
                     this._getAdditionalMessage()
                 }
+                <div style = {{ marginTop: '10px', textAlign: 'center' }}>
+                    {this.props.t('dialog.remoteControlAutoAccept', { seconds: this.state.countdown })}
+                </div>
             </Dialog>
         );
     }
@@ -112,6 +179,12 @@ class RemoteControlAuthorizationDialog extends Component<IProps> {
     _onCancel() {
         const { dispatch, participantId } = this.props;
 
+        // Clear the countdown timer when the user manually denies
+        if (this._countdownTimer !== null) {
+            window.clearInterval(this._countdownTimer);
+            this._countdownTimer = null;
+        }
+
         dispatch(deny(participantId));
 
         return true;
@@ -129,6 +202,12 @@ class RemoteControlAuthorizationDialog extends Component<IProps> {
      */
     _onSubmit() {
         const { dispatch, participantId } = this.props;
+
+        // Clear the countdown timer when the user manually accepts
+        if (this._countdownTimer !== null) {
+            window.clearInterval(this._countdownTimer);
+            this._countdownTimer = null;
+        }
 
         dispatch(grant(participantId));
 
