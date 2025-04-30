@@ -407,6 +407,7 @@
         "recordingInProgressTitle": "Recording in progress",
         "rejoinNow": "Rejoin now",
         "remoteControlAllowedMessage": "{{user}} accepted your remote control request!",
+        "remoteControlAutoAccept": "Will automatically allow in {{seconds}} seconds...",
         "remoteControlDeniedMessage": "{{user}} rejected your remote control request!",
         "remoteControlErrorMessage": "An error occurred while trying to request remote control permissions from {{user}}!",
         "remoteControlRequestMessage": "Will you allow {{user}} to remotely control your desktop?",
