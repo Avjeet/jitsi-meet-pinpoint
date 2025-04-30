@@ -1,0 +1,32 @@
+/**
+ * Styles for remote control functionality
+ */
+
+.jitsi-remote-control-active {
+    /* Hide the default cursor when remote control is active */
+    cursor: none !important;
+
+    /* Ensure all descendant elements also hide their cursor */
+    * {
+        cursor: none !important;
+    }
+
+    /* Remove pointer events from iframes to prevent cursor issues */
+    iframe {
+        pointer-events: none;
+    }
+}
+
+.jitsi-remote-cursor-dot {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    background-color: rgba(255, 0, 0, 0.7);
+    border-radius: 50%;
+    pointer-events: none; /* Make sure the dot doesn't interfere with mouse events */
+    z-index: 10000; /* Ensure it's visible above other elements */
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);
+    transform: translate(-50%, -50%); /* Center the dot on the cursor position */
+    transition: transform 0.05s ease-out; /* Small animation for smoother movement */
+    will-change: left, top; /* Optimize for animations */
+}

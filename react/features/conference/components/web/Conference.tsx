@@ -24,6 +24,7 @@ import ParticipantsPane from '../../../participants-pane/components/web/Particip
 import Prejoin from '../../../prejoin/components/web/Prejoin';
 import { isPrejoinPageVisible } from '../../../prejoin/functions';
 import ReactionAnimations from '../../../reactions/components/web/ReactionsAnimations';
+import RemoteControlCursor from '../../../remote-control/components/RemoteControlCursor';
 import { toggleToolboxVisible } from '../../../toolbox/actions.any';
 import { fullScreenChanged, showToolbox } from '../../../toolbox/actions.web';
 import JitsiPortal from '../../../toolbox/components/web/JitsiPortal';
@@ -283,6 +284,7 @@ class Conference extends AbstractConference<IProps, any> {
                 </div>
                 <ParticipantsPane />
                 <ReactionAnimations />
+                <RemoteControlCursor />
             </div>
         );
     }
