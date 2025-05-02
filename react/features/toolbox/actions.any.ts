@@ -12,7 +12,7 @@ import {
     SET_TOOLBOX_VISIBLE,
     TOGGLE_TOOLBOX_VISIBLE
 } from './actionTypes';
-import { DUMMY_10_BUTTONS_THRESHOLD_VALUE, DUMMY_9_BUTTONS_THRESHOLD_VALUE } from './constants';
+import { DUMMY_10_BUTTONS_THRESHOLD_VALUE, DUMMY_9_BUTTONS_THRESHOLD_VALUE, TOOLBOX_BEHAVIOR } from './constants';
 import { IMainToolbarButtonThresholds, IMainToolbarButtonThresholdsUnfiltered } from './types';
 
 /**
@@ -32,7 +32,7 @@ export function setToolboxEnabled(enabled: boolean) {
 }
 
 /**
- * Shows/hides the toolbox.
+ * Shows/hides the toolbox based on the toolbox behavior setting.
  *
  * @param {boolean} visible - True to show the toolbox or false to hide it.
  * @returns {Function}
@@ -40,12 +40,30 @@ export function setToolboxEnabled(enabled: boolean) {
 export function setToolboxVisible(visible: boolean) {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const { toolbarConfig } = getState()['features/base/config'];
-        const alwaysVisible = toolbarConfig?.alwaysVisible;
+        const toolboxBehavior = toolbarConfig?.toolboxBehavior;
+        const alwaysVisible = toolbarConfig?.alwaysVisible || toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_VISIBLE;
+        const alwaysHidden = toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_HIDE;
 
-        if (!visible && alwaysVisible) {
+        // Handle the special case of changing behavior settings via API
+        if (alwaysVisible && !visible) {
+            // If the toolbox should always be visible, ensure it's shown regardless of the visible param
+            dispatch({
+                type: SET_TOOLBOX_VISIBLE,
+                visible: true
+            });
+            return;
+        } 
+        
+        if (alwaysHidden && visible) {
+            // If the toolbox should always be hidden, ensure it's hidden regardless of the visible param
+            dispatch({
+                type: SET_TOOLBOX_VISIBLE,
+                visible: false
+            });
             return;
         }
 
+        // For all other normal cases, follow the requested visibility
         dispatch({
             type: SET_TOOLBOX_VISIBLE,
             visible
@@ -54,7 +72,7 @@ export function setToolboxVisible(visible: boolean) {
 }
 
 /**
- * Action to toggle the toolbox visibility.
+ * Action to toggle the toolbox visibility according to toolbox behavior setting.
  *
  * @returns {Function}
  */
@@ -62,10 +80,13 @@ export function toggleToolboxVisible() {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const state = getState();
         const { toolbarConfig } = getState()['features/base/config'];
-        const alwaysVisible = toolbarConfig?.alwaysVisible;
+        const toolboxBehavior = toolbarConfig?.toolboxBehavior;
+        const alwaysVisible = toolbarConfig?.alwaysVisible || toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_VISIBLE;
+        const alwaysHidden = toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_HIDE;
         const { visible } = state['features/toolbox'];
 
-        if (visible && alwaysVisible) {
+        // Don't toggle the toolbox if it's set to always visible or always hidden
+        if ((visible && alwaysVisible) || (!visible && alwaysHidden)) {
             return;
         }
 
@@ -74,7 +95,6 @@ export function toggleToolboxVisible() {
         });
     };
 }
-
 
 /**
  * Action to handle toggle video from toolbox's video buttons.

@@ -13,8 +13,9 @@ import {
     SET_TOOLBAR_HOVERED,
     SET_TOOLBOX_TIMEOUT
 } from './actionTypes';
-import { setToolboxVisible } from './actions.web';
+import { TOOLBOX_BEHAVIOR } from './constants';
 import { getToolbarTimeout } from './functions.web';
+import { setToolboxVisible } from './actions.web';
 
 export * from './actions.any';
 
@@ -74,7 +75,8 @@ export function hideToolbox(force = false) {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const state = getState();
         const { toolbarConfig } = state['features/base/config'];
-        const alwaysVisible = toolbarConfig?.alwaysVisible;
+        const toolboxBehavior = toolbarConfig?.toolboxBehavior;
+        const alwaysVisible = toolbarConfig?.alwaysVisible || toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_VISIBLE;
         const autoHideWhileChatIsOpen = toolbarConfig?.autoHideWhileChatIsOpen;
         const { hovered } = state['features/toolbox'];
         const toolbarTimeout = getToolbarTimeout(state);
@@ -133,7 +135,20 @@ export function showToolbox(timeout = 0) {
         const { toolbarConfig } = state['features/base/config'];
         const toolbarTimeout = getToolbarTimeout(state);
         const initialTimeout = toolbarConfig?.initialTimeout;
-        const alwaysVisible = toolbarConfig?.alwaysVisible;
+        const toolboxBehavior = toolbarConfig?.toolboxBehavior;
+        const alwaysVisible = toolbarConfig?.alwaysVisible || toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_VISIBLE;
+        const alwaysHidden = toolboxBehavior === TOOLBOX_BEHAVIOR.ALWAYS_HIDE;
+        const { fullScreen } = state['features/toolbox'];
+
+        // Don't show the toolbox when in fullscreen mode
+        if (fullScreen) {
+            return;
+        }
+
+        // Don't show the toolbox if set to always hidden
+        if (alwaysHidden) {
+            return;
+        }
 
         const {
             enabled,
