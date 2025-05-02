@@ -1,6 +1,15 @@
 import { NativeToolbarButton, ToolbarButton } from './types';
 
 /**
+ * Enum for toolbox behavior modes.
+ */
+export enum TOOLBOX_BEHAVIOR {
+    AUTO_HIDE = 'auto-hide',
+    ALWAYS_HIDE = 'always-hide',
+    ALWAYS_VISIBLE = 'always-visible'
+}
+
+/**
  * Dummy toolbar threschold value for 9 buttons. It is used as a placeholder in THRESHOLDS that would work only when
  * this value is overiden.
  */

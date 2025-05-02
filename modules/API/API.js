@@ -126,6 +126,7 @@ import { extractYoutubeIdOrURL } from '../../react/features/shared-video/functio
 import { setRequestingSubtitles, toggleRequestingSubtitles } from '../../react/features/subtitles/actions';
 import { isAudioMuteButtonDisabled } from '../../react/features/toolbox/functions';
 import { setTileView, toggleTileView } from '../../react/features/video-layout/actions.any';
+import { setToolboxVisible } from '../../react/features/toolbox/actions';
 import { muteAllParticipants } from '../../react/features/video-menu/actions';
 import { setVideoQuality } from '../../react/features/video-quality/actions';
 import { toggleBackgroundEffect, toggleBlurredBackgroundEffect } from '../../react/features/virtual-background/actions';
@@ -907,6 +908,41 @@ function initCommands() {
                 backgroundType: VIRTUAL_BACKGROUND_TYPE.IMAGE,
                 virtualSource: backgroundImage
             }, jitsiTrack));
+        },
+        'set-toolbox-behavior': behaviorType => {
+            const { TOOLBOX_BEHAVIOR } = require('../../react/features/toolbox/constants');
+            
+            // Validate the behavior type
+            if (!Object.values(TOOLBOX_BEHAVIOR).includes(behaviorType)) {
+                logger.error('Invalid toolbox behavior type:', behaviorType);
+                logger.log('Valid values are:', Object.values(TOOLBOX_BEHAVIOR));
+                return;
+            }
+            
+            sendAnalytics(createApiEvent('toolbox.behavior.changed'));
+            const { toolbarConfig = {} } = APP.store.getState()['features/base/config'];
+            
+            // Update the config to include the new toolbox behavior
+            APP.store.dispatch(overwriteConfig({
+                toolbarConfig: {
+                    ...toolbarConfig,
+                    toolboxBehavior: behaviorType
+                }
+            }));
+            
+            // Apply the new behavior immediately, but only for ALWAYS_VISIBLE and ALWAYS_HIDE
+            // For AUTO_HIDE, keep the current state (don't change anything)
+            switch (behaviorType) {
+            case TOOLBOX_BEHAVIOR.ALWAYS_VISIBLE:
+                APP.store.dispatch((true));
+                break;
+            case TOOLBOX_BEHAVIOR.ALWAYS_HIDE:
+                APP.store.dispatch(setToolboxVisible(false));
+                break;
+            case TOOLBOX_BEHAVIOR.AUTO_HIDE:
+                // Don't change the current state, just use the default auto-hide behavior from now on
+                break;
+            }
         }
     };
     transport.on('event', ({ data, name }) => {

@@ -89,6 +89,9 @@ function devServerProxyBypass({ path }) {
 
         return tpath;
     }
+    if (path === '/external_api.js') {
+                return '/libs/external_api.js';
+        }
 }
 
 /**

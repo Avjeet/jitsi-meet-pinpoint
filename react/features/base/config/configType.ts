@@ -613,6 +613,7 @@ export interface IConfig {
         autoHideWhileChatIsOpen?: boolean;
         initialTimeout?: number;
         timeout?: number;
+        toolboxBehavior?: string;
     };
     transcribeWithAppLanguage?: boolean;
     transcribingEnabled?: boolean;

@@ -69,6 +69,7 @@ const commands = {
     setParticipantVolume: 'set-participant-volume',
     setSubtitles: 'set-subtitles',
     setTileView: 'set-tile-view',
+    setToolboxBehavior: 'set-toolbox-behavior',
     setVideoQuality: 'set-video-quality',
     setVirtualBackground: 'set-virtual-background',
     showNotification: 'show-notification',
