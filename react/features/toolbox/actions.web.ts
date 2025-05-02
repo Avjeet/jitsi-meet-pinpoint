@@ -134,17 +134,11 @@ export function showToolbox(timeout = 0) {
         const toolbarTimeout = getToolbarTimeout(state);
         const initialTimeout = toolbarConfig?.initialTimeout;
         const alwaysVisible = toolbarConfig?.alwaysVisible;
-        const { fullScreen } = state['features/toolbox'];
 
         const {
             enabled,
             visible
         } = state['features/toolbox'];
-
-        // Don't show the toolbar when in fullscreen mode
-        if (fullScreen) {
-            return;
-        }
 
         if (enabled && !visible) {
             dispatch(setToolboxVisible(true));
