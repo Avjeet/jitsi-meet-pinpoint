@@ -53,7 +53,7 @@ jobs:
       run: ls -la ../*.deb ../*.changes ../*.dsc ../*.tar.* || true
     
     - name: Upload Debian packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: debian-packages
         path: |

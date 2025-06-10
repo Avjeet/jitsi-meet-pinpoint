@@ -1,0 +1,12 @@
+name: Simple Manual Trigger
+
+# Most basic workflow file to test manual triggering
+on:
+  workflow_dispatch:
+
+jobs:
+  hello-world:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hello World
+        run: echo "Hello World!"
