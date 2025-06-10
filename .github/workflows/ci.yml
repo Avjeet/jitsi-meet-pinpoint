@@ -1,6 +1,14 @@
 name: Simple CI
 
-on: [pull_request]
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_deb:
+        description: 'Build Debian package'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   lint:
@@ -168,6 +176,8 @@ jobs:
   debian-build:
     name: Test Debian packages build
     runs-on: ubuntu-latest
+    # Run this job during PR builds or when explicitly included in workflow_dispatch
+    if: github.event_name == 'pull_request' || !github.event.inputs.build_deb || github.event.inputs.build_deb == 'true'
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -183,3 +193,39 @@ jobs:
     - run: sudo apt-get install -y debhelper
     - run: dpkg-buildpackage -A -rfakeroot -us -uc -d
     - run: make source-package
+    
+  release-deb-package:
+    name: Build and Upload Debian Package
+    runs-on: ubuntu-latest
+    # Only run this job when manually triggered with the build_deb option
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_deb == 'true'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+    - name: Check Node / npm versions
+      run: |
+        node -v
+        npm -v
+    - run: npm install
+    - run: make
+    - name: Install Debian packaging tools
+      run: sudo apt-get update && sudo apt-get install -y debhelper devscripts lintian
+    - name: Build Debian package
+      run: |
+        dpkg-buildpackage -A -rfakeroot -us -uc -d
+        make source-package
+    - name: List generated files
+      run: ls -la ../*.deb ../*.changes ../*.dsc ../*.tar.* || true
+    - name: Upload Debian packages
+      uses: actions/upload-artifact@v3
+      with:
+        name: debian-packages
+        path: |
+          ../*.deb
+          ../*.changes
+          ../*.dsc
+          ../*.tar.*
+        retention-days: 7
