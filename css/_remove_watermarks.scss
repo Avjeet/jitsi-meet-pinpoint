@@ -1,0 +1,20 @@
+/**
+ * This file contains styles to forcefully hide any watermark elements that
+ * might still be rendered despite our component changes.
+ */
+
+.watermark {
+    display: none !important;
+}
+
+.watermark.leftwatermark {
+    display: none !important;
+}
+
+.watermark.rightwatermark {
+    display: none !important;
+}
+
+.poweredby {
+    display: none !important;
+}
