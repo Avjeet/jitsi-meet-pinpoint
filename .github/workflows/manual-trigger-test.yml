@@ -1,12 +1,51 @@
-name: Simple Manual Trigger
+name: Test Release Process
 
-# Most basic workflow file to test manual triggering
+# Workflow to test the release process permissions
 on:
   workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: false
+        default: 'permissions'
+        type: string
+
+# Add permissions needed for releases
+permissions:
+  contents: write
 
 jobs:
-  hello-world:
+  test-permissions:
     runs-on: ubuntu-latest
     steps:
-      - name: Hello World
-        run: echo "Hello World!"
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create empty test file
+        run: |
+          echo "This is a test file" > test-release-file.txt
+          mkdir -p artifacts
+          cp test-release-file.txt artifacts/
+      
+      - name: Test permissions
+        run: |
+          echo "Testing GitHub token permissions"
+          echo "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+          echo "Repository: ${{ github.repository }}"
+          
+      - name: Create test release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: test-release-${{ github.run_id }}
+          name: Test Release
+          draft: true
+          prerelease: true
+          body: |
+            # Test Release
+            
+            This is a test release to verify GitHub Actions permissions.
+            This release can be safely deleted.
+          files: |
+            artifacts/test-release-file.txt

@@ -9,10 +9,32 @@ on:
         required: false
         default: 'master'
         type: string
+      version:
+        description: 'Version number for this release (e.g., 2.0.6786)'
+        required: false
+        type: string
+      release_name:
+        description: 'Release name'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: false
+        type: boolean
   # Adding push event to make workflow visible
   push:
     branches:
       - master
+
+# Add permissions needed for creating releases
+permissions:
+  contents: write
 
 jobs:
   build-deb:
@@ -64,3 +86,53 @@ jobs:
         path: ./artifacts
         retention-days: 7
         if-no-files-found: warn
+    
+    # Extract package version from package.json if not provided
+    - name: Extract version information
+      id: package-version
+      if: github.event.inputs.version == ''
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+    
+    # Generate changelog from git commits
+    - name: Generate changelog
+      id: changelog
+      run: |
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "## Changes in this release" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        git log -n 10 --pretty=format:"* %s (%h)" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    # Create a GitHub release with the built packages
+    - name: Create Release
+      id: create_release
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.event.inputs.version || steps.package-version.outputs.version }}
+        name: ${{ github.event.inputs.release_name || format('Release v{0}', github.event.inputs.version || steps.package-version.outputs.version) }}
+        draft: ${{ github.event.inputs.draft || false }}
+        prerelease: ${{ github.event.inputs.prerelease || false }}
+        body: |
+          # Jitsi Meet Release
+          
+          ${{ steps.changelog.outputs.CHANGELOG }}
+          
+          ## Installation
+          
+          Download the appropriate .deb file for your system and install with:
+          ```
+          sudo dpkg -i jitsi-meet_*.deb
+          sudo apt-get install -f
+          ```
+        files: |
+          ./artifacts/*.deb
+          ./artifacts/*.changes
+          ./artifacts/*.dsc
+          ./artifacts/*.tar.*
