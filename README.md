@@ -10,6 +10,8 @@ This auto-allows remote control automatically in 5 seconds, without the user's i
 
 - Remove jitsi logo watermarks on iframe
 
+- Allow manually building Ubuntu .deb package
+
 Follow https://community.jitsi.org/t/how-to-how-to-build-jitsi-meet-from-source-a-developers-guide/75422
 and
 https://jitsi.github.io/handbook/docs/dev-guide/dev-guide-web-jitsi-meet
