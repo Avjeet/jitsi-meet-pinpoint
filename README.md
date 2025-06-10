@@ -8,6 +8,7 @@ Mods
 - Auto-allow remote control
 This auto-allows remote control automatically in 5 seconds, without the user's input
 
+- Remove jitsi logo watermarks on iframe
 
 Follow https://community.jitsi.org/t/how-to-how-to-build-jitsi-meet-from-source-a-developers-guide/75422
 and
