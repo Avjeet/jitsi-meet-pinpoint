@@ -52,13 +52,15 @@ jobs:
     - name: List generated files
       run: ls -la ../*.deb ../*.changes ../*.dsc ../*.tar.* || true
     
+    - name: Create artifacts directory and copy files
+      run: |
+        mkdir -p ./artifacts
+        cp -v ../*.deb ../*.changes ../*.dsc ../*.tar.* ./artifacts/ || true
+    
     - name: Upload Debian packages
       uses: actions/upload-artifact@v4
       with:
         name: debian-packages
-        path: |
-          ../*.deb
-          ../*.changes
-          ../*.dsc
-          ../*.tar.*
+        path: ./artifacts
         retention-days: 7
+        if-no-files-found: warn
