@@ -1,0 +1,64 @@
+name: Build Debian Package
+
+# This workflow can be triggered manually from the GitHub UI
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit SHA to build from'
+        required: false
+        default: 'master'
+        type: string
+  # Adding push event to make workflow visible
+  push:
+    branches:
+      - master
+
+jobs:
+  build-deb:
+    name: Build Debian Package
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref || 'master' }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+    
+    - name: Check Node / npm versions
+      run: |
+        node -v
+        npm -v
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Build frontend
+      run: make
+    
+    - name: Install Debian packaging tools
+      run: sudo apt-get update && sudo apt-get install -y debhelper devscripts lintian
+    
+    - name: Build Debian package
+      run: |
+        dpkg-buildpackage -A -rfakeroot -us -uc -d
+        make source-package
+    
+    - name: List generated files
+      run: ls -la ../*.deb ../*.changes ../*.dsc ../*.tar.* || true
+    
+    - name: Upload Debian packages
+      uses: actions/upload-artifact@v3
+      with:
+        name: debian-packages
+        path: |
+          ../*.deb
+          ../*.changes
+          ../*.dsc
+          ../*.tar.*
+        retention-days: 7
