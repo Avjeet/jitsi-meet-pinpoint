@@ -98,19 +98,8 @@ class Watermarks extends Component<IProps, State> {
      * @returns {ReactElement}
      */
     override render() {
-        return (
-            <div>
-                {
-                    this._renderJitsiWatermark()
-                }
-                {
-                    this._renderBrandWatermark()
-                }
-                {
-                    this._renderPoweredBy()
-                }
-            </div>
-        );
+        // Return an empty React fragment instead of watermarks
+        return <></>;
     }
 
     /**
@@ -231,13 +220,10 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
     const isValidRoom = state['features/base/conference'].room;
     const { defaultLogoUrl } = state['features/base/config'];
     const {
-        JITSI_WATERMARK_LINK,
-        SHOW_JITSI_WATERMARK
+        JITSI_WATERMARK_LINK
     } = interfaceConfig;
-    let _showJitsiWatermark = (
-        customizationReady && !customizationFailed
-        && SHOW_JITSI_WATERMARK)
-    || !isValidRoom;
+    // Always set to false to never show the watermark
+    let _showJitsiWatermark = false;
     let _logoUrl: string | undefined = logoImageUrl;
     let _logoLink = logoClickUrl;
 
