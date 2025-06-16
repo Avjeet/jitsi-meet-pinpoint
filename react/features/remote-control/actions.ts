@@ -682,6 +682,9 @@ export function keyPressed(type: string, event: React.KeyboardEvent) {
     };
 }
 
+// Track if event listeners are already attached to prevent duplicates
+let eventListenersAttached = false;
+
 /**
 * Disables the keyboatd shortcuts. Starts collecting remote control
 * events. It can be used to resume an active remote control session which
@@ -700,15 +703,50 @@ export function resume() {
             return;
         }
 
+        // Prevent duplicate event listener attachment
+        if (eventListenersAttached) {
+            logger.log('Remote control event listeners already attached, skipping resume.');
+            dispatch({
+                type: CAPTURE_EVENTS,
+                isCapturingEvents: true
+            });
+            return;
+        }
+
         logger.log('Resuming remote control controller.');
 
+        // Mark that we're attaching event listeners
+        eventListenersAttached = true;
+
+        // First remove any existing event listeners to prevent duplicates
+        area.off('mousemove');
+        area.off('mousedown');
+        area.off('mouseup');
+        area.off('dblclick');
+        area.off('contextmenu');
+        area[0].onwheel = undefined;
+        $(window).off('keydown');
+        $(window).off('keyup');
+
+        // Now add the event listeners
         area.mousemove((event: React.MouseEvent) => {
             dispatch(mouseMoved(event));
         });
-        area.mousedown((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mousedown, event)));
-        area.mouseup((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mouseup, event)));
-        // Don't listen to dblclick separately to avoid duplicate events
-        // area.dblclick((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mousedblclick, event)));
+
+        // Handle single mousedown and mouseup events (keep these for single clicks)
+        area.mousedown((event: React.MouseEvent) => {
+            dispatch(mouseClicked(EVENTS.mousedown, event));
+        });
+
+        area.mouseup((event: React.MouseEvent) => {
+            dispatch(mouseClicked(EVENTS.mouseup, event));
+        });
+
+        // Handle double-click events - send ONLY the double-click event, no individual events
+        area.dblclick((event: React.MouseEvent) => {
+            // Send double-click event
+            dispatch(mouseClicked(EVENTS.mousedblclick, event));
+        });
 
         area.contextmenu(() => false);
         area[0].onwheel = (event: any) => {
@@ -749,6 +787,9 @@ export function pause() {
         }
 
         logger.log('Pausing remote control controller.');
+
+        // Reset the event listeners flag
+        eventListenersAttached = false;
 
         const area = getRemoteConrolEventCaptureArea();
 
