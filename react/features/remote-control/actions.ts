@@ -682,11 +682,6 @@ export function keyPressed(type: string, event: React.KeyboardEvent) {
     };
 }
 
-// Track if we're in a double-click sequence to prevent duplicate events
-let isDoubleClickInProgress = false;
-let doubleClickTimer: number | null = null;
-const DOUBLE_CLICK_DETECTION_DELAY = 300; // milliseconds
-
 /**
 * Disables the keyboatd shortcuts. Starts collecting remote control
 * events. It can be used to resume an active remote control session which
@@ -710,40 +705,10 @@ export function resume() {
         area.mousemove((event: React.MouseEvent) => {
             dispatch(mouseMoved(event));
         });
-
-        // Handle mousedown events - check if it's part of a double-click
-        area.mousedown((event: React.MouseEvent) => {
-            if (!isDoubleClickInProgress) {
-                dispatch(mouseClicked(EVENTS.mousedown, event));
-            }
-        });
-
-        // Handle mouseup events - check if it's part of a double-click
-        area.mouseup((event: React.MouseEvent) => {
-            if (!isDoubleClickInProgress) {
-                dispatch(mouseClicked(EVENTS.mouseup, event));
-            }
-        });
-
-        // Handle double-click - suppress individual click events temporarily
-        area.dblclick((event: React.MouseEvent) => {
-            // Set flag to prevent individual click events from being sent
-            isDoubleClickInProgress = true;
-
-            // Clear any existing timer
-            if (doubleClickTimer) {
-                clearTimeout(doubleClickTimer);
-            }
-
-            // Send the double-click event
-            dispatch(mouseClicked(EVENTS.mousedblclick, event));
-
-            // Reset the flag after a short delay to allow normal clicks again
-            doubleClickTimer = window.setTimeout(() => {
-                isDoubleClickInProgress = false;
-                doubleClickTimer = null;
-            }, DOUBLE_CLICK_DETECTION_DELAY);
-        });
+        area.mousedown((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mousedown, event)));
+        area.mouseup((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mouseup, event)));
+        // Don't listen to dblclick separately to avoid duplicate events
+        // area.dblclick((event: React.MouseEvent) => dispatch(mouseClicked(EVENTS.mousedblclick, event)));
 
         area.contextmenu(() => false);
         area[0].onwheel = (event: any) => {
@@ -784,13 +749,6 @@ export function pause() {
         }
 
         logger.log('Pausing remote control controller.');
-
-        // Clear any pending double-click timer
-        if (doubleClickTimer) {
-            clearTimeout(doubleClickTimer);
-            doubleClickTimer = null;
-        }
-        isDoubleClickInProgress = false;
 
         const area = getRemoteConrolEventCaptureArea();
 
