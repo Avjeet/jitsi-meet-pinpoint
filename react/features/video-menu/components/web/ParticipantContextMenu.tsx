@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
+declare const APP: any;
+
 import { IReduxState, IStore } from '../../../app/types';
 import { MEDIA_TYPE as AVM_MEDIA_TYPE } from '../../../av-moderation/constants';
 import { isSupported as isAvModerationSupported, isForceMuted } from '../../../av-moderation/functions';
@@ -290,7 +292,7 @@ const ParticipantContextMenu = ({
         buttons2.push(<ConnectionStatusButton { ...getButtonProps(BUTTONS.CONN_STATUS) } />);
     }
 
-    if (thumbnailMenu && remoteControlState) {
+    if (thumbnailMenu && remoteControlState && _isModerator) {
         const onRemoteControlToggle = useCallback(() => {
             if (remoteControlState === REMOTE_CONTROL_MENU_STATES.STARTED) {
                 dispatch(stopController(true));
