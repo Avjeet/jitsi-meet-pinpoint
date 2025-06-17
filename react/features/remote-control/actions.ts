@@ -707,6 +707,10 @@ export function keyPressed(type: string, event: React.KeyboardEvent) {
 // Track if event listeners are already attached to prevent duplicates
 let eventListenersAttached = false;
 
+// Track double-click state to prevent sending individual events during double-click
+let doubleClickTimer: NodeJS.Timeout | null = null;
+let isDoubleClickSequence = false;
+
 /**
 * Disables the keyboatd shortcuts. Starts collecting remote control
 * events. It can be used to resume an active remote control session which
@@ -755,19 +759,37 @@ export function resume() {
             dispatch(mouseMoved(event));
         });
 
-        // Handle single mousedown and mouseup events (keep these for single clicks)
+        // Handle single mousedown and mouseup events (but not during double-click sequences)
         area.mousedown((event: React.MouseEvent) => {
-            dispatch(mouseClicked(EVENTS.mousedown, event));
+            if (!isDoubleClickSequence) {
+                dispatch(mouseClicked(EVENTS.mousedown, event));
+            }
         });
 
         area.mouseup((event: React.MouseEvent) => {
-            dispatch(mouseClicked(EVENTS.mouseup, event));
+            if (!isDoubleClickSequence) {
+                dispatch(mouseClicked(EVENTS.mouseup, event));
+            }
         });
 
-        // Handle double-click events - send ONLY the double-click event, no individual events
+        // Handle double-click events - prevent individual events and send only double-click
         area.dblclick((event: React.MouseEvent) => {
+            // Mark that we're in a double-click sequence to prevent individual events
+            isDoubleClickSequence = true;
+            
+            // Clear any existing timer
+            if (doubleClickTimer) {
+                clearTimeout(doubleClickTimer);
+            }
+            
             // Send double-click event
             dispatch(mouseClicked(EVENTS.mousedblclick, event));
+            
+            // Reset the double-click flag after a short delay
+            doubleClickTimer = setTimeout(() => {
+                isDoubleClickSequence = false;
+                doubleClickTimer = null;
+            }, 100); // 100ms should be sufficient to prevent individual events
         });
 
         area.contextmenu(() => false);
@@ -812,6 +834,13 @@ export function pause() {
 
         // Reset the event listeners flag
         eventListenersAttached = false;
+        
+        // Clear any pending double-click timer
+        if (doubleClickTimer) {
+            clearTimeout(doubleClickTimer);
+            doubleClickTimer = null;
+        }
+        isDoubleClickSequence = false;
 
         const area = getRemoteConrolEventCaptureArea();
 
