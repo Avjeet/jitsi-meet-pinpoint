@@ -471,7 +471,8 @@ export function endpointMessageReceived(participantId: string, message: {
 
             if (!controller && type === EVENTS.permissions && action === PERMISSIONS_ACTIONS.request) {
                 dispatch(setRemoteControlActive(true));
-                dispatch(openRemoteControlAuthorizationDialog(participantId));
+                // Auto-grant remote control permission without showing dialog
+                dispatch(grant(participantId));
             } else if (controller === participantId) {
                 if (type === EVENTS.stop) {
                     dispatch(stopReceiver(false, true));
