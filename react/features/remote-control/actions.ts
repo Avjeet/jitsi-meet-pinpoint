@@ -1,4 +1,3 @@
-// @ts-expect-error
 import $ from 'jquery';
 import React from 'react';
 
@@ -7,12 +6,15 @@ import { openDialog } from '../base/dialog/actions';
 import { JitsiConferenceEvents } from '../base/lib-jitsi-meet';
 import { pinParticipant } from '../base/participants/actions';
 import {
+    getParticipantById,
     getParticipantDisplayName,
     getPinnedParticipant,
-    getVirtualScreenshareParticipantByOwnerId
+    getVirtualScreenshareParticipantByOwnerId,
+    isParticipantModerator,
+    getLocalParticipant
 } from '../base/participants/functions';
-import { toggleScreensharing } from '../base/tracks/actions';
-import { getLocalDesktopTrack } from '../base/tracks/functions';
+import { toggleScreensharing } from '../base/tracks/actions.web';
+import { getLocalDesktopTrack } from '../base/tracks/functions.any';
 import { showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isScreenVideoShared } from '../screen-share/functions';
@@ -103,6 +105,12 @@ export function requestRemoteControl(userId: string) {
 
         if (!enabled) {
             return Promise.reject(new Error('Remote control is disabled!'));
+        }
+
+        // Check if the local participant is a moderator
+        const localParticipant = getLocalParticipant(state);
+        if (!isParticipantModerator(localParticipant)) {
+            return Promise.reject(new Error('Only moderators can request remote control!'));
         }
 
         dispatch(setRemoteControlActive(true));
@@ -470,6 +478,18 @@ export function endpointMessageReceived(participantId: string, message: {
             const { controller } = receiver;
 
             if (!controller && type === EVENTS.permissions && action === PERMISSIONS_ACTIONS.request) {
+                // Check if the requester is a moderator
+                const requesterParticipant = getParticipantById(state, participantId);
+                
+                if (!isParticipantModerator(requesterParticipant)) {
+                    logger.log(`Remote control request denied from non-moderator: ${participantId}`);
+                    sendRemoteControlEndpointMessage(state['features/base/conference'].conference, participantId, {
+                        type: EVENTS.permissions,
+                        action: PERMISSIONS_ACTIONS.deny
+                    });
+                    return;
+                }
+                
                 dispatch(setRemoteControlActive(true));
                 // Auto-grant remote control permission without showing dialog
                 dispatch(grant(participantId));
