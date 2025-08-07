@@ -11,6 +11,8 @@ import '../participants-pane/reducer';
 import '../power-monitor/reducer';
 import '../prejoin/reducer';
 import '../remote-control/reducer';
+import '../remote-android-control/reducer';
+import '../remote-android-control/middleware';
 import '../screen-share/reducer';
 import '../noise-suppression/reducer';
 import '../screenshot-capture/reducer';

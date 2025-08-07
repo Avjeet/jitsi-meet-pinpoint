@@ -1,0 +1,987 @@
+From 371094d1c1b7ab886ca3a0e7531c22b15f43573f Mon Sep 17 00:00:00 2001
+From: "avjeet.singh" <avjeet.singh@phonepe.com>
+Date: Thu, 7 Aug 2025 15:38:37 +0530
+Subject: [PATCH] feat: added android remote control functinality
+
+---
+ lang/main.json                                |   7 +
+ react/features/app/reducers.web.ts            |   2 +
+ react/features/app/types.ts                   |   2 +
+ react/features/base/icons/svg/constants.ts    |   4 +
+ react/features/base/icons/svg/index.ts        |   4 +
+ react/features/base/icons/svg/pointer-off.svg |  13 +
+ react/features/base/icons/svg/pointer.svg     |  21 ++
+ .../large-video/components/LargeVideo.web.tsx |   2 +
+ .../remote-android-control/actionTypes.ts     |  38 +++
+ .../remote-android-control/actions.ts         | 274 ++++++++++++++++++
+ .../web/AndroidControlController.tsx          |  80 +++++
+ .../web/RemoteAndroidControlButton.tsx        |  69 +++++
+ .../remote-android-control/constants.ts       |  26 ++
+ .../remote-android-control/functions.ts       |  96 ++++++
+ .../remote-android-control/middleware.ts      |  27 ++
+ .../remote-android-control/reducer.ts         |  43 +++
+ .../components/web/ParticipantContextMenu.tsx |  33 +++
+ react/features/video-menu/constants.ts        |   1 +
+ 18 files changed, 742 insertions(+)
+ create mode 100644 react/features/base/icons/svg/pointer-off.svg
+ create mode 100644 react/features/base/icons/svg/pointer.svg
+ create mode 100644 react/features/remote-android-control/actionTypes.ts
+ create mode 100644 react/features/remote-android-control/actions.ts
+ create mode 100644 react/features/remote-android-control/components/web/AndroidControlController.tsx
+ create mode 100644 react/features/remote-android-control/components/web/RemoteAndroidControlButton.tsx
+ create mode 100644 react/features/remote-android-control/constants.ts
+ create mode 100644 react/features/remote-android-control/functions.ts
+ create mode 100644 react/features/remote-android-control/middleware.ts
+ create mode 100644 react/features/remote-android-control/reducer.ts
+
+diff --git a/lang/main.json b/lang/main.json
+index a45573869..300d05566 100644
+--- a/lang/main.json
++++ b/lang/main.json
+@@ -414,6 +414,13 @@
+         "remoteControlShareScreenWarning": "Note that if you press \"Allow\" you will share your screen!",
+         "remoteControlStopMessage": "The remote control session ended!",
+         "remoteControlTitle": "Remote desktop control",
++        "remoteAndroidControl": {
++            "start": "Start remote Android control",
++            "stop": "Stop remote Android control", 
++            "started": "Remote Android control started",
++            "stopped": "Remote Android control stopped",
++            "title": "Remote Android Control"
++        },
+         "remoteUserControls": "Remote user controls of {{username}}",
+         "removePassword": "Remove $t(lockRoomPassword)",
+         "removeSharedVideoMsg": "Are you sure you would like to remove your shared video?",
+diff --git a/react/features/app/reducers.web.ts b/react/features/app/reducers.web.ts
+index 33ccaff67..7014a0675 100644
+--- a/react/features/app/reducers.web.ts
++++ b/react/features/app/reducers.web.ts
+@@ -11,6 +11,8 @@ import '../participants-pane/reducer';
+ import '../power-monitor/reducer';
+ import '../prejoin/reducer';
+ import '../remote-control/reducer';
++import '../remote-android-control/reducer';
++import '../remote-android-control/middleware';
+ import '../screen-share/reducer';
+ import '../noise-suppression/reducer';
+ import '../screenshot-capture/reducer';
+diff --git a/react/features/app/types.ts b/react/features/app/types.ts
+index 28a07e766..159f3a7e2 100644
+--- a/react/features/app/types.ts
++++ b/react/features/app/types.ts
+@@ -66,6 +66,7 @@ import { IReactionsState } from '../reactions/reducer';
+ import { IRecentListState } from '../recent-list/reducer';
+ import { IRecordingState } from '../recording/reducer';
+ import { IRemoteControlState } from '../remote-control/reducer';
++import { IRemoteAndroidControlState } from '../remote-android-control/reducer';
+ import { IScreenShareState } from '../screen-share/reducer';
+ import { IScreenshotCaptureState } from '../screenshot-capture/reducer';
+ import { IShareRoomState } from '../share-room/reducer';
+@@ -155,6 +156,7 @@ export interface IReduxState {
+     'features/recent-list': IRecentListState;
+     'features/recording': IRecordingState;
+     'features/remote-control': IRemoteControlState;
++    'features/remote-android-control': IRemoteAndroidControlState;
+     'features/screen-share': IScreenShareState;
+     'features/screenshot-capture': IScreenshotCaptureState;
+     'features/settings': ISettingsState;
+diff --git a/react/features/base/icons/svg/constants.ts b/react/features/base/icons/svg/constants.ts
+index a078f43aa..e35a19890 100644
+--- a/react/features/base/icons/svg/constants.ts
++++ b/react/features/base/icons/svg/constants.ts
+@@ -85,6 +85,8 @@ import { default as IconSip } from './sip.svg';
+ import { default as IconSites } from './sites.svg';
+ import { default as IconRemoteControlStart } from './start-remote-control.svg';
+ import { default as IconRemoteControlStop } from './stop-remote-control.svg';
++import { default as IconPointer } from './pointer.svg';
++import { default as IconPointerOff } from './pointer-off.svg';
+ import { default as IconStop } from './stop.svg';
+ import { default as IconSubtitles } from './subtitles.svg';
+ import { default as IconTileView } from './tile-view.svg';
+@@ -187,6 +189,8 @@ export const DEFAULT_ICON: Record<string, any> = {
+     IconRecordOpportunity,
+     IconRemoteControlStart,
+     IconRemoteControlStop,
++    IconPointer,
++    IconPointerOff,
+     IconReply,
+     IconRestore,
+     IconRingGroup,
+diff --git a/react/features/base/icons/svg/index.ts b/react/features/base/icons/svg/index.ts
+index ee0ad9416..d08d7408b 100644
+--- a/react/features/base/icons/svg/index.ts
++++ b/react/features/base/icons/svg/index.ts
+@@ -79,6 +79,8 @@ const {
+     IconRecordOpportunity,
+     IconRemoteControlStart,
+     IconRemoteControlStop,
++    IconPointer,
++    IconPointerOff,
+     IconReply,
+     IconRestore,
+     IconRingGroup,
+@@ -198,6 +200,8 @@ export {
+     IconRecordOpportunity,
+     IconRemoteControlStart,
+     IconRemoteControlStop,
++    IconPointer,
++    IconPointerOff,
+     IconReply,
+     IconRestore,
+     IconRingGroup,
+diff --git a/react/features/base/icons/svg/pointer-off.svg b/react/features/base/icons/svg/pointer-off.svg
+new file mode 100644
+index 000000000..86cd293f9
+--- /dev/null
++++ b/react/features/base/icons/svg/pointer-off.svg
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="iso-8859-1"?>
++<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
++<svg fill="#000000" height="800px" width="800px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
++	 viewBox="0 0 512 512" xml:space="preserve">
++<g>
++	<g>
++		<path d="M256,0C114.841,0,0,114.841,0,256c0,141.159,114.841,256,256,256s256-114.841,256-256C512,114.841,397.159,0,256,0z
++			 M256,490.667C126.604,490.667,21.333,385.396,21.333,256c0-60.87,23.299-116.397,61.445-158.143l331.365,331.366
++			C372.398,467.366,316.87,490.667,256,490.667z M429.227,414.138L97.862,82.772C139.607,44.632,195.133,21.333,256,21.333
++			c129.396,0,234.667,105.271,234.667,234.667C490.667,316.867,467.367,372.393,429.227,414.138z"/>
++	</g>
++</g>
++</svg>
+\ No newline at end of file
+diff --git a/react/features/base/icons/svg/pointer.svg b/react/features/base/icons/svg/pointer.svg
+new file mode 100644
+index 000000000..9f88240f4
+--- /dev/null
++++ b/react/features/base/icons/svg/pointer.svg
+@@ -0,0 +1,21 @@
++<?xml version="1.0" encoding="iso-8859-1"?>
++<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
++<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
++<svg fill="#000000" height="800px" width="800px" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
++	 viewBox="0 0 297 297" xml:space="preserve">
++<path d="M294.135,251.898l-58.202-58.203l41.522-23.987c3.245-1.872,5.136-5.435,4.864-9.172c-0.267-3.739-2.65-6.99-6.131-8.38
++	l-98.11-39.133c1.892-7.346,2.866-14.895,2.865-22.553c0-49.885-40.585-90.469-90.47-90.469C40.587,0.004,0,40.588,0,90.471
++	c0,49.884,40.586,90.466,90.473,90.466c7.662,0,15.216-0.974,22.563-2.867l39.128,98.112c1.39,3.48,4.645,5.863,8.382,6.133
++	c3.743,0.27,7.302-1.619,9.173-4.863l23.983-41.523l58.2,58.205c1.835,1.835,4.322,2.865,6.916,2.865
++	c2.594,0,5.085-1.03,6.917-2.865l28.4-28.404C297.955,261.908,297.955,255.716,294.135,251.898z M90.473,161.378
++	c-39.102,0-70.911-31.809-70.911-70.907s31.81-70.907,70.912-70.907c39.1,0,70.908,31.808,70.908,70.907
++	c0.001,5.159-0.56,10.25-1.653,15.231l-18.58-7.41c0.356-2.499,0.535-5.024,0.516-7.569c-0.224-28.14-23.302-51.216-51.446-51.444
++	c-0.139,0-0.271,0-0.411,0c-13.548,0-26.234,5.233-35.767,14.763c-9.627,9.627-14.87,22.473-14.763,36.178
++	c0.227,28.142,23.303,51.217,51.448,51.445c0.133,0,0.264,0,0.396,0c2.413,0,4.813-0.183,7.186-0.521l7.409,18.577
++	C100.732,160.817,95.635,161.378,90.473,161.378z M91.02,78.297c-3.631-1.448-7.773-0.595-10.54,2.168
++	c-2.765,2.765-3.618,6.908-2.171,10.539l12.401,31.093c-17.45-0.23-31.732-14.564-31.872-32.034
++	c-0.066-8.417,3.142-16.298,9.034-22.19c5.833-5.832,13.616-9.034,21.937-9.034c0.086,0,0.169,0,0.252,0.002
++	c17.467,0.141,31.797,14.41,32.035,31.854L91.02,78.297z M258.817,273.387l-60.296-60.3c-1.846-1.848-4.339-2.866-6.916-2.866
++	c-0.424,0-0.851,0.027-1.276,0.083c-3.014,0.397-5.673,2.173-7.194,4.807l-20.27,35.096l-57.954-145.308l145.304,57.958
++	l-35.104,20.273c-2.631,1.521-4.406,4.182-4.806,7.193c-0.395,3.015,0.632,6.043,2.782,8.192l60.3,60.299L258.817,273.387z"/>
++</svg>
+\ No newline at end of file
+diff --git a/react/features/large-video/components/LargeVideo.web.tsx b/react/features/large-video/components/LargeVideo.web.tsx
+index b93195313..92a0cd1e2 100644
+--- a/react/features/large-video/components/LargeVideo.web.tsx
++++ b/react/features/large-video/components/LargeVideo.web.tsx
+@@ -23,6 +23,7 @@ import Whiteboard from '../../whiteboard/components/web/Whiteboard';
+ import { isWhiteboardEnabled } from '../../whiteboard/functions';
+ import { setSeeWhatIsBeingShared } from '../actions.web';
+ import { getLargeVideoParticipant } from '../functions';
++import AndroidControlController from '../../remote-android-control/components/web/AndroidControlController';
+ 
+ import ScreenSharePlaceholder from './ScreenSharePlaceholder.web';
+ 
+@@ -254,6 +255,7 @@ class LargeVideo extends Component<IProps> {
+                             playsInline = { true } /* for Safari on iOS to work */ />
+                     </div>
+                 </div>
++                <AndroidControlController />
+                 { (!interfaceConfig.DISABLE_TRANSCRIPTION_SUBTITLES && _showSubtitles)
+                     && <Captions /> }
+                 {
+diff --git a/react/features/remote-android-control/actionTypes.ts b/react/features/remote-android-control/actionTypes.ts
+new file mode 100644
+index 000000000..e5c650a7e
+--- /dev/null
++++ b/react/features/remote-android-control/actionTypes.ts
+@@ -0,0 +1,38 @@
++/**
++ * The type of (redux) action which sets the remote android control active state.
++ *
++ * {
++ *     type: SET_REMOTE_ANDROID_CONTROL_ACTIVE,
++ *     active: boolean
++ * }
++ */
++export const SET_REMOTE_ANDROID_CONTROL_ACTIVE = 'SET_REMOTE_ANDROID_CONTROL_ACTIVE';
++
++/**
++ * The type of (redux) action which sets the controlled participant for remote android control.
++ *
++ * {
++ *     type: SET_REMOTE_ANDROID_CONTROL_CONTROLLED,
++ *     controlled: string
++ * }
++ */
++export const SET_REMOTE_ANDROID_CONTROL_CONTROLLED = 'SET_REMOTE_ANDROID_CONTROL_CONTROLLED';
++
++/**
++ * The type of (redux) action which starts remote android control.
++ *
++ * {
++ *     type: REMOTE_ANDROID_CONTROL_START,
++ *     participantId: string
++ * }
++ */
++export const REMOTE_ANDROID_CONTROL_START = 'REMOTE_ANDROID_CONTROL_START';
++
++/**
++ * The type of (redux) action which stops remote android control.
++ *
++ * {
++ *     type: REMOTE_ANDROID_CONTROL_STOP
++ * }
++ */
++export const REMOTE_ANDROID_CONTROL_STOP = 'REMOTE_ANDROID_CONTROL_STOP';
+diff --git a/react/features/remote-android-control/actions.ts b/react/features/remote-android-control/actions.ts
+new file mode 100644
+index 000000000..7b72bd5e9
+--- /dev/null
++++ b/react/features/remote-android-control/actions.ts
+@@ -0,0 +1,274 @@
++import { IStore } from '../app/types';
++import { IJitsiConference } from '../base/conference/reducer';
++import { showNotification } from '../notifications/actions';
++import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
++
++import {
++    SET_REMOTE_ANDROID_CONTROL_ACTIVE,
++    SET_REMOTE_ANDROID_CONTROL_CONTROLLED
++} from './actionTypes';
++import {
++    REMOTE_ANDROID_CONTROL_EVENTS
++} from './constants';
++import { sendRemoteAndroidControlEndpointMessage } from './functions';
++
++/**
++ * Sets the remote android control active state.
++ *
++ * @param {boolean} active - Whether remote android control is active.
++ * @returns {Object}
++ */
++export function setRemoteAndroidControlActive(active: boolean) {
++    return {
++        type: SET_REMOTE_ANDROID_CONTROL_ACTIVE,
++        active
++    };
++}
++
++/**
++ * Sets the controlled participant for remote android control.
++ *
++ * @param {string} controlled - The participant ID being controlled.
++ * @returns {Object}
++ */
++export function setRemoteAndroidControlControlled(controlled: string | undefined) {
++    return {
++        type: SET_REMOTE_ANDROID_CONTROL_CONTROLLED,
++        controlled
++    };
++}
++
++/**
++ * Starts remote android control session with a participant.
++ *
++ * @param {string} participantId - The participant to control.
++ * @returns {Function}
++ */
++export function startRemoteAndroidControl(participantId: string) {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { conference } = state['features/base/conference'];
++        
++        if (!conference) {
++            return;
++        }
++        
++        dispatch(setRemoteAndroidControlActive(true));
++        dispatch(setRemoteAndroidControlControlled(participantId));
++        
++        const messageResult = sendRemoteAndroidControlEndpointMessage(conference, participantId, {
++            type: REMOTE_ANDROID_CONTROL_EVENTS.start
++        });
++        
++        dispatch(showNotification({
++            descriptionKey: 'remoteAndroidControl.started',
++            titleKey: 'remoteAndroidControl.title'
++        }, NOTIFICATION_TIMEOUT_TYPE.SHORT));
++    };
++}
++
++/**
++ * Stops the remote android control session.
++ *
++ * @returns {Function}
++ */
++export function stopRemoteAndroidControl() {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++
++        if (controlled && conference) {
++            sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++                type: REMOTE_ANDROID_CONTROL_EVENTS.stop
++            });
++        }
++
++        dispatch(setRemoteAndroidControlActive(false));
++        dispatch(setRemoteAndroidControlControlled(undefined));
++
++        dispatch(showNotification({
++            descriptionKey: 'remoteAndroidControl.stopped',
++            titleKey: 'remoteAndroidControl.title'
++        }, NOTIFICATION_TIMEOUT_TYPE.SHORT));
++    };
++}
++
++/**
++ * Handles mouse/touch move events and sends pointer coordinates.
++ *
++ * @param {React.MouseEvent | React.TouchEvent} event - The mouse or touch event.
++ * @param {HTMLElement} videoElement - The video element for coordinate calculation.
++ * @returns {Function}
++ */
++export function handlePointerMove(event: React.MouseEvent | React.TouchEvent, videoElement: HTMLElement) {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { active, controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++    
++        if (!active || !controlled || !conference) {
++            return;
++        }
++
++        const rect = videoElement.getBoundingClientRect();
++        let clientX: number, clientY: number;
++
++        // Handle mouse events
++        if ('clientX' in event) {
++            clientX = event.clientX;
++            clientY = event.clientY;
++        } else {
++            console.log('🟦 handlePointerMove: Invalid event - no clientX/clientY');
++            return;
++        }
++
++        // Calculate normalized coordinates (0-1 range) relative to video element
++        const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
++        const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
++
++        // Send pointer move message
++        sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++            type: REMOTE_ANDROID_CONTROL_EVENTS.pointerMove,
++            x,
++            y
++        });
++    };
++}
++
++/**
++ * Handles mouse/touch down events and sends pointer down coordinates.
++ *
++ * @param {React.MouseEvent | React.TouchEvent} event - The mouse or touch event.
++ * @param {HTMLElement} videoElement - The video element for coordinate calculation.
++ * @returns {Function}
++ */
++export function handlePointerDown(event: React.MouseEvent | React.TouchEvent, videoElement: HTMLElement) {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { active, controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++
++        if (!active || !controlled || !conference) {
++            return;
++        }
++
++        const rect = videoElement.getBoundingClientRect();
++        let clientX: number, clientY: number;
++
++        // Handle both mouse and touch events
++        if ('clientX' in event) {
++            clientX = event.clientX;
++            clientY = event.clientY;
++        } else {
++            return;
++        }
++
++        // Calculate normalized coordinates (0-1 range)
++        const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
++        const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
++
++        // Send pointer down message
++        sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++            type: REMOTE_ANDROID_CONTROL_EVENTS.pointerDown,
++            x,
++            y
++        });
++    };
++}
++
++/**
++ * Handles mouse/touch up events and sends pointer up coordinates.
++ *
++ * @param {React.MouseEvent | React.TouchEvent} event - The mouse or touch event.
++ * @param {HTMLElement} videoElement - The video element for coordinate calculation.
++ * @returns {Function}
++ */
++export function handlePointerUp(event: React.MouseEvent | React.TouchEvent, videoElement: HTMLElement) {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { active, controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++
++        if (!active || !controlled || !conference) {
++            return;
++        }
++
++        const rect = videoElement.getBoundingClientRect();
++        let clientX: number, clientY: number;
++
++        // Handle both mouse and touch events
++        if ('clientX' in event) {
++            clientX = event.clientX;
++            clientY = event.clientY;
++        } else {
++            return;
++        }
++
++        // Calculate normalized coordinates (0-1 range)
++        const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
++        const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
++
++        // Send pointer up message
++        sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++            type: REMOTE_ANDROID_CONTROL_EVENTS.pointerUp,
++            x,
++            y
++        });
++    };
++}
++
++
++
++/**
++ * Handles showing the pointer.
++ * NOTE: For Android apps, this just sends the message. Android handles the visualization.
++ *
++ * @returns {Function}
++ */
++export function showPointer() {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++
++        if (controlled && conference) {
++            sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++                type: REMOTE_ANDROID_CONTROL_EVENTS.pointerShow
++            });
++        }
++    };
++}
++
++/**
++ * Handles hiding the pointer.
++ * NOTE: For Android apps, this just sends the message. Android handles the visualization.
++ *
++ * @returns {Function}
++ */
++/**
++ * Handles hiding the pointer.
++ * NOTE: For Android apps, this just sends the message. Android handles the visualization.
++ *
++ * @returns {Function}
++ */
++export function hidePointer() {
++    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
++        const state = getState();
++        const { controlled } = state['features/remote-android-control'];
++        const { conference } = state['features/base/conference'];
++
++        console.log('🟦 Sending hidePointer message to Android app:', controlled);
++
++        if (controlled && conference) {
++            sendRemoteAndroidControlEndpointMessage(conference, controlled, {
++                type: REMOTE_ANDROID_CONTROL_EVENTS.pointerHide
++            });
++        }
++    };
++}
++
++/**
++ * NOTE: handleRemoteAndroidControlMessage function removed since Android app handles all android control message receiving.
++ * Web client only sends android control commands to Android app via endpoint messages.
++ */
+diff --git a/react/features/remote-android-control/components/web/AndroidControlController.tsx b/react/features/remote-android-control/components/web/AndroidControlController.tsx
+new file mode 100644
+index 000000000..e97447135
+--- /dev/null
++++ b/react/features/remote-android-control/components/web/AndroidControlController.tsx
+@@ -0,0 +1,80 @@
++import React, { useCallback, useEffect, useRef } from 'react';
++import { useDispatch, useSelector } from 'react-redux';
++
++import { IReduxState } from '../../../app/types';
++
++import { handlePointerMove, handlePointerDown, handlePointerUp, hidePointer, showPointer } from '../../actions';
++import { getVideoElement } from '../../functions';
++
++/**
++ * Component that handles android control events when remote android control is active.
++ * Optimized for Web → Android control.
++ */
++const AndroidControlController: React.FC = () => {
++    const dispatch = useDispatch();
++    const { active } = useSelector((state: IReduxState) => state['features/remote-android-control']);
++    const videoElementRef = useRef<HTMLElement | null>(null);
++
++    const onPointerMove = useCallback((event: React.MouseEvent | React.TouchEvent) => {
++        const videoElement = videoElementRef.current;
++        if (videoElement && active) {
++            dispatch(handlePointerMove(event, videoElement));
++        }
++    }, [dispatch, active]);
++
++    const onPointerDown = useCallback((event: React.MouseEvent | React.TouchEvent) => {
++        const videoElement = videoElementRef.current;
++        if (videoElement && active) {
++            dispatch(handlePointerDown(event, videoElement));
++        }
++    }, [dispatch, active]);
++
++    const onPointerUp = useCallback((event: React.MouseEvent | React.TouchEvent) => {
++        const videoElement = videoElementRef.current;
++        if (videoElement && active) {
++            dispatch(handlePointerUp(event, videoElement));
++        }
++    }, [dispatch, active]);
++
++    const onPointerEnter = useCallback(() => {
++        if (active) {
++            dispatch(showPointer());
++        }
++    }, [dispatch, active]);
++
++    const onPointerLeave = useCallback(() => {
++        if (active) {
++            dispatch(hidePointer());
++        }
++    }, [dispatch, active]);
++
++    useEffect(() => {
++        if (active) {
++            videoElementRef.current = getVideoElement();
++            const videoElement = videoElementRef.current;
++
++            if (videoElement) {
++                // Add event listeners for mouse/touch events
++                videoElement.addEventListener('mousemove', onPointerMove as any);
++                videoElement.addEventListener('mousedown', onPointerDown as any);
++                videoElement.addEventListener('mouseup', onPointerUp as any);
++                videoElement.addEventListener('mouseenter', onPointerEnter);
++                videoElement.addEventListener('mouseleave', onPointerLeave);
++
++                return () => {
++                    // Cleanup event listeners
++                    videoElement.removeEventListener('mousemove', onPointerMove as any);
++                    videoElement.removeEventListener('mousedown', onPointerDown as any);
++                    videoElement.removeEventListener('mouseup', onPointerUp as any);
++                    videoElement.removeEventListener('mouseenter', onPointerEnter);
++                    videoElement.removeEventListener('mouseleave', onPointerLeave);
++                };
++            }
++        }
++    }, [active, onPointerMove, onPointerDown, onPointerUp, onPointerEnter, onPointerLeave]);
++
++    // This component doesn't render anything visible
++    return null;
++};
++
++export default AndroidControlController;
+diff --git a/react/features/remote-android-control/components/web/RemoteAndroidControlButton.tsx b/react/features/remote-android-control/components/web/RemoteAndroidControlButton.tsx
+new file mode 100644
+index 000000000..09c0ae372
+--- /dev/null
++++ b/react/features/remote-android-control/components/web/RemoteAndroidControlButton.tsx
+@@ -0,0 +1,69 @@
++import React, { Component } from 'react';
++import { WithTranslation } from 'react-i18next';
++
++import { translate } from '../../../base/i18n/functions';
++import { IconPointer, IconPointerOff } from '../../../base/icons/svg';
++import ContextMenuItem from '../../../base/ui/components/web/ContextMenuItem';
++
++import { REMOTE_ANDROID_CONTROL_BUTTON_STATES } from '../../constants';
++
++interface IProps extends WithTranslation {
++    /**
++     * Callback to execute when the button is clicked.
++     */
++    onClick: () => void;
++
++    /**
++     * The ID of the participant.
++     */
++    participantID: string;
++
++    /**
++     * The current state of remote android control.
++     */
++    remoteAndroidControlState: number;
++}
++
++/**
++ * Remote android control button component for participant context menu.
++ */
++class RemoteAndroidControlButton extends Component<IProps> {
++    constructor(props: IProps) {
++        super(props);
++
++        this._onClick = this._onClick.bind(this);
++    }
++
++    /**
++     * Implements React's {@link Component#render()}.
++     */
++    override render() {
++        const { remoteAndroidControlState, t } = this.props;
++
++        if (remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.NOT_AVAILABLE) {
++            return null;
++        }
++
++        const isActive = remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.ACTIVE;
++        const icon = isActive ? IconPointerOff : IconPointer;
++        const text = isActive ? 'remoteAndroidControl.stop' : 'remoteAndroidControl.start';
++
++        return (
++            <ContextMenuItem
++                accessibilityLabel={t(text)}
++                icon={icon}
++                onClick={this._onClick}
++                text={t(text)}
++            />
++        );
++    }
++
++    /**
++     * Handles button click.
++     */
++    _onClick() {
++        this.props.onClick();
++    }
++}
++
++export default translate(RemoteAndroidControlButton);
+diff --git a/react/features/remote-android-control/constants.ts b/react/features/remote-android-control/constants.ts
+new file mode 100644
+index 000000000..dec23a195
+--- /dev/null
++++ b/react/features/remote-android-control/constants.ts
+@@ -0,0 +1,26 @@
++/**
++ * The name of the message that will be sent through the datachannel for remote android control communication.
++ */
++export const REMOTE_ANDROID_CONTROL_MESSAGE_NAME = 'remote-android-control';
++
++/**
++ * Remote android control events.
++ */
++export const REMOTE_ANDROID_CONTROL_EVENTS = {
++    pointerMove: 'pointer-move',
++    pointerShow: 'pointer-show',
++    pointerHide: 'pointer-hide',
++    pointerDown: 'pointer-down',
++    pointerUp: 'pointer-up',
++    start: 'start',
++    stop: 'stop'
++};
++
++/**
++ * Remote android control button states for the UI.
++ */
++export const REMOTE_ANDROID_CONTROL_BUTTON_STATES = {
++    NOT_AVAILABLE: 0,
++    AVAILABLE: 1,
++    ACTIVE: 2
++};
+diff --git a/react/features/remote-android-control/functions.ts b/react/features/remote-android-control/functions.ts
+new file mode 100644
+index 000000000..b9a2559fe
+--- /dev/null
++++ b/react/features/remote-android-control/functions.ts
+@@ -0,0 +1,96 @@
++import { IReduxState } from '../app/types';
++import { IJitsiConference } from '../base/conference/reducer';
++import { getParticipantById } from '../base/participants/functions';
++import { isScreenVideoShared } from '../screen-share/functions';
++
++import { REMOTE_ANDROID_CONTROL_MESSAGE_NAME } from './constants';
++
++/**
++ * Checks if remote android control is available for a participant.
++ * Remote android control is available when the participant is screen sharing.
++ *
++ * @param {IReduxState} state - The redux state.
++ * @param {string} participantId - The participant ID to check.
++ * @returns {boolean} True if remote android control is available.
++ */
++export function isRemoteAndroidControlAvailable(state: IReduxState, participantId: string): boolean {    
++    const participant = getParticipantById(state, participantId);
++    
++    if (!participant) {
++        return false;
++    }
++
++    // For local participant, check if they are screen sharing
++    if (participant.local) {
++        const isSharing = isScreenVideoShared(state);
++        return isSharing;
++    }
++
++    // For remote participants, check if they have a desktop track
++    const tracks = state['features/base/tracks'];
++    const participantTracks = tracks.filter(t => t.participantId === participantId);
++    
++    const hasDesktopTrack = tracks.some((track: any) => {
++        const matches = track.participantId === participantId && 
++                       track.mediaType === 'screenshare' && 
++                       track.videoType === 'desktop';
++        
++        return matches;
++    });
++    
++    return hasDesktopTrack;
++}
++
++/**
++ * Sends remote android control message to a participant through data channel.
++ * This uses the external API mechanism to ensure Android apps receive the message.
++ *
++ * @param {IJitsiConference} conference - The conference instance.
++ * @param {string} to - The participant ID to send to.
++ * @param {any} event - The event data.
++ * @returns {boolean} True if message was sent successfully.
++ */
++export function sendRemoteAndroidControlEndpointMessage(
++    conference: IJitsiConference,
++    to: string,
++    event: any
++): boolean {
++    try { 
++        // Send the message as a text message with JSON payload
++        // This will trigger SEND_ENDPOINT_TEXT_MESSAGE on Android
++        const messagePayload = JSON.stringify({
++            name: REMOTE_ANDROID_CONTROL_MESSAGE_NAME,
++            ...event
++        });
++                
++        conference.sendEndpointMessage(to, {
++            name: 'endpoint-text-message', // This is the ENDPOINT_TEXT_MESSAGE_NAME
++            text: messagePayload
++        });
++        
++        return true;
++    } catch (error) {
++        return false;
++    }
++}
++
++/**
++ * Gets the video element for coordinate calculations.
++ * This can be the large video or a specific participant's video.
++ *
++ * @returns {HTMLElement | null} The video element or null if not found.
++ */
++export function getVideoElement(): HTMLElement | null {
++    // Try to get the actual large video element first
++    const largeVideoElement = document.getElementById('largeVideo');
++    if (largeVideoElement) {
++        const rect = largeVideoElement.getBoundingClientRect();
++        if (rect.width > 0 && rect.height > 0) {
++            return largeVideoElement;
++        }
++    }
++
++    // Fallback to main container
++    const mainContainer = document.getElementById('videospace');
++    return mainContainer;
++}
+diff --git a/react/features/remote-android-control/middleware.ts b/react/features/remote-android-control/middleware.ts
+new file mode 100644
+index 000000000..72d45dbed
+--- /dev/null
++++ b/react/features/remote-android-control/middleware.ts
+@@ -0,0 +1,27 @@
++import { ENDPOINT_MESSAGE_RECEIVED } from '../base/conference/actionTypes';
++import { PARTICIPANT_LEFT } from '../base/participants/actionTypes';
++import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
++
++import { stopRemoteAndroidControl } from './actions';
++
++/**
++ * Middleware for remote android control feature.
++ */
++MiddlewareRegistry.register(store => next => action => {
++    const { dispatch, getState } = store;
++
++    switch (action.type) {
++
++        case PARTICIPANT_LEFT: {
++            const state = getState();
++            const { controlled } = state['features/remote-android-control'];
++
++            if (controlled === action.participant.id) {
++                dispatch(stopRemoteAndroidControl());
++            }
++            break;
++        }
++    }
++
++    return next(action);
++});
+diff --git a/react/features/remote-android-control/reducer.ts b/react/features/remote-android-control/reducer.ts
+new file mode 100644
+index 000000000..de2564354
+--- /dev/null
++++ b/react/features/remote-android-control/reducer.ts
+@@ -0,0 +1,43 @@
++import { AnyAction } from 'redux';
++
++import ReducerRegistry from '../base/redux/ReducerRegistry';
++
++import { 
++    SET_REMOTE_ANDROID_CONTROL_ACTIVE,
++    SET_REMOTE_ANDROID_CONTROL_CONTROLLED
++} from './actionTypes';
++
++export interface IRemoteAndroidControlState {
++    active: boolean;
++    controlled?: string;
++}
++
++const initialState: IRemoteAndroidControlState = {
++    active: false,
++    controlled: undefined
++};
++
++/**
++ * Reduces the Redux actions of the feature remote-android-control.
++ */
++export default ReducerRegistry.register(
++    'features/remote-android-control',
++    (state: IRemoteAndroidControlState = initialState, action: AnyAction): IRemoteAndroidControlState => {
++        switch (action.type) {
++        case SET_REMOTE_ANDROID_CONTROL_ACTIVE:
++            return {
++                ...state,
++                active: action.active
++            };
++
++        case SET_REMOTE_ANDROID_CONTROL_CONTROLLED:
++            return {
++                ...state,
++                controlled: action.controlled
++            };
++
++        default:
++            return state;
++        }
++    }
++);
+diff --git a/react/features/video-menu/components/web/ParticipantContextMenu.tsx b/react/features/video-menu/components/web/ParticipantContextMenu.tsx
+index a7b337b50..798664b28 100644
+--- a/react/features/video-menu/components/web/ParticipantContextMenu.tsx
++++ b/react/features/video-menu/components/web/ParticipantContextMenu.tsx
+@@ -24,6 +24,9 @@ import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
+ import { QUICK_ACTION_BUTTON } from '../../../participants-pane/constants';
+ import { getQuickActionButtonType, isForceMuted } from '../../../participants-pane/functions';
+ import { requestRemoteControl, stopController } from '../../../remote-control/actions';
++import { startRemoteAndroidControl, stopRemoteAndroidControl } from '../../../remote-android-control/actions';
++import { isRemoteAndroidControlAvailable } from '../../../remote-android-control/functions';
++import { REMOTE_ANDROID_CONTROL_BUTTON_STATES } from '../../../remote-android-control/constants';
+ import { getParticipantMenuButtonsWithNotifyClick, showOverflowDrawer } from '../../../toolbox/functions.web';
+ import { NOTIFY_CLICK_MODE } from '../../../toolbox/types';
+ import { iAmVisitor } from '../../../visitors/functions';
+@@ -42,6 +45,7 @@ import MuteEveryoneElsesVideoButton from './MuteEveryoneElsesVideoButton';
+ import MuteVideoButton from './MuteVideoButton';
+ import PrivateMessageMenuButton from './PrivateMessageMenuButton';
+ import RemoteControlButton, { REMOTE_CONTROL_MENU_STATES } from './RemoteControlButton';
++import RemoteAndroidControlButton from '../../../remote-android-control/components/web/RemoteAndroidControlButton';
+ import SendToRoomButton from './SendToRoomButton';
+ import TogglePinToStageButton from './TogglePinToStageButton';
+ import VerifyParticipantButton from './VerifyParticipantButton';
+@@ -156,6 +160,10 @@ const ParticipantContextMenu = ({
+     const shouldDisplayVerification = useSelector((state: IReduxState) => displayVerification(state, participant?.id));
+     const buttonsWithNotifyClick = useSelector(getParticipantMenuButtonsWithNotifyClick);
+ 
++    // Remote android control state
++    const remoteAndroidControlActive = useSelector((state: IReduxState) => state['features/remote-android-control'].active);
++    const remoteAndroidControlControlled = useSelector((state: IReduxState) => state['features/remote-android-control'].controlled);
++
+     const _currentRoomId = useSelector(getCurrentRoomId);
+     const _rooms: IRoom[] = Object.values(useSelector(getBreakoutRooms));
+ 
+@@ -170,6 +178,9 @@ const ParticipantContextMenu = ({
+     }
+     , [ thumbnailMenu, _overflowDrawer, drawerParticipant, participant ]);
+ 
++    const remoteAndroidControlAvailable = useSelector((state: IReduxState) => 
++        isRemoteAndroidControlAvailable(state, _getCurrentParticipantId()));
++
+     const notifyClick = useCallback(
+         (buttonKey: string) => {
+             const notifyMode = buttonsWithNotifyClick?.get(buttonKey);
+@@ -294,6 +305,28 @@ const ParticipantContextMenu = ({
+         );
+     }
+ 
++    if (thumbnailMenu && remoteAndroidControlAvailable) {
++        const remoteAndroidControlState = !remoteAndroidControlAvailable 
++            ? REMOTE_ANDROID_CONTROL_BUTTON_STATES.NOT_AVAILABLE
++            : (remoteAndroidControlActive && remoteAndroidControlControlled === _getCurrentParticipantId())
++                ? REMOTE_ANDROID_CONTROL_BUTTON_STATES.ACTIVE
++                : REMOTE_ANDROID_CONTROL_BUTTON_STATES.AVAILABLE;
++
++        const onRemoteAndroidControlToggle = useCallback(() => {
++            if (remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.ACTIVE) {
++                dispatch(stopRemoteAndroidControl());
++            } else if (remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.AVAILABLE) {
++                dispatch(startRemoteAndroidControl(_getCurrentParticipantId()));
++            }
++        }, [ dispatch, remoteAndroidControlState, stopRemoteAndroidControl, startRemoteAndroidControl ]);
++
++        buttons2.push(<RemoteAndroidControlButton
++            { ...getButtonProps(BUTTONS.REMOTE_ANDROID_CONTROL) }
++            onClick = { onRemoteAndroidControlToggle }
++            remoteAndroidControlState = { remoteAndroidControlState } />
++        );
++    }
++
+     if (customParticipantMenuButtons) {
+         customParticipantMenuButtons.forEach(
+             ({ icon, id, text }) => {
+diff --git a/react/features/video-menu/constants.ts b/react/features/video-menu/constants.ts
+index a4c8a1aa2..aa5a5fb52 100644
+--- a/react/features/video-menu/constants.ts
++++ b/react/features/video-menu/constants.ts
+@@ -33,6 +33,7 @@ export const PARTICIPANT_MENU_BUTTONS = {
+     PIN_TO_STAGE: 'pinToStage',
+     PRIVATE_MESSAGE: 'privateMessage',
+     REMOTE_CONTROL: 'remote-control',
++    REMOTE_ANDROID_CONTROL: 'remote-android-control',
+     SEND_PARTICIPANT_TO_ROOM: 'send-participant-to-room',
+     VERIFY: 'verify'
+ };
+-- 
+2.50.1
+

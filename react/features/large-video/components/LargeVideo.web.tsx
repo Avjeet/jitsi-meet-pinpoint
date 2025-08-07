@@ -23,6 +23,7 @@ import Whiteboard from '../../whiteboard/components/web/Whiteboard';
 import { isWhiteboardEnabled } from '../../whiteboard/functions';
 import { setSeeWhatIsBeingShared } from '../actions.web';
 import { getLargeVideoParticipant } from '../functions';
+import AndroidControlController from '../../remote-android-control/components/web/AndroidControlController';
 
 import ScreenSharePlaceholder from './ScreenSharePlaceholder.web';
 
@@ -254,6 +255,7 @@ class LargeVideo extends Component<IProps> {
                             playsInline = { true } /* for Safari on iOS to work */ />
                     </div>
                 </div>
+                <AndroidControlController />
                 { (!interfaceConfig.DISABLE_TRANSCRIPTION_SUBTITLES && _showSubtitles)
                     && <Captions /> }
                 {
