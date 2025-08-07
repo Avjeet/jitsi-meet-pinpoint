@@ -85,6 +85,8 @@ import { default as IconSip } from './sip.svg';
 import { default as IconSites } from './sites.svg';
 import { default as IconRemoteControlStart } from './start-remote-control.svg';
 import { default as IconRemoteControlStop } from './stop-remote-control.svg';
+import { default as IconPointer } from './pointer.svg';
+import { default as IconPointerOff } from './pointer-off.svg';
 import { default as IconStop } from './stop.svg';
 import { default as IconSubtitles } from './subtitles.svg';
 import { default as IconTileView } from './tile-view.svg';
@@ -187,6 +189,8 @@ export const DEFAULT_ICON: Record<string, any> = {
     IconRecordOpportunity,
     IconRemoteControlStart,
     IconRemoteControlStop,
+    IconPointer,
+    IconPointerOff,
     IconReply,
     IconRestore,
     IconRingGroup,

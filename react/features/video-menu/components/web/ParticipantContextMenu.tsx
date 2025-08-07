@@ -25,6 +25,9 @@ import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
 import { QUICK_ACTION_BUTTON } from '../../../participants-pane/constants';
 import { getQuickActionButtonType } from '../../../participants-pane/functions';
 import { requestRemoteControl, stopController } from '../../../remote-control/actions';
+import { startRemoteAndroidControl, stopRemoteAndroidControl } from '../../../remote-android-control/actions';
+import { isRemoteAndroidControlAvailable } from '../../../remote-android-control/functions';
+import { REMOTE_ANDROID_CONTROL_BUTTON_STATES } from '../../../remote-android-control/constants';
 import { getParticipantMenuButtonsWithNotifyClick, showOverflowDrawer } from '../../../toolbox/functions.web';
 import { NOTIFY_CLICK_MODE } from '../../../toolbox/types';
 import { PARTICIPANT_MENU_BUTTONS as BUTTONS } from '../../constants';
@@ -44,6 +47,7 @@ import MuteEveryoneElsesVideoButton from './MuteEveryoneElsesVideoButton';
 import MuteVideoButton from './MuteVideoButton';
 import PrivateMessageMenuButton from './PrivateMessageMenuButton';
 import RemoteControlButton, { REMOTE_CONTROL_MENU_STATES } from './RemoteControlButton';
+import RemoteAndroidControlButton from '../../../remote-android-control/components/web/RemoteAndroidControlButton';
 import SendToRoomButton from './SendToRoomButton';
 import TogglePinToStageButton from './TogglePinToStageButton';
 import VerifyParticipantButton from './VerifyParticipantButton';
@@ -159,6 +163,10 @@ const ParticipantContextMenu = ({
     const buttonsWithNotifyClick = useSelector(getParticipantMenuButtonsWithNotifyClick);
     const enablePrivateChat = useSelector((state: IReduxState) => isPrivateChatEnabled(participant, state));
 
+    // Remote android control state
+    const remoteAndroidControlActive = useSelector((state: IReduxState) => state['features/remote-android-control'].active);
+    const remoteAndroidControlControlled = useSelector((state: IReduxState) => state['features/remote-android-control'].controlled);
+
     const _currentRoomId = useSelector(getCurrentRoomId);
     const _rooms: IRoom[] = Object.values(useSelector(getBreakoutRooms));
 
@@ -172,6 +180,9 @@ const ParticipantContextMenu = ({
         return (drawer ? drawerParticipant?.participantID : participant?.id) ?? '';
     }
     , [ thumbnailMenu, _overflowDrawer, drawerParticipant, participant ]);
+
+    const remoteAndroidControlAvailable = useSelector((state: IReduxState) => 
+        isRemoteAndroidControlAvailable(state, _getCurrentParticipantId()));
 
     const notifyClick = useCallback(
         (buttonKey: string) => {
@@ -305,6 +316,28 @@ const ParticipantContextMenu = ({
             { ...getButtonProps(BUTTONS.REMOTE_CONTROL) }
             onClick = { onRemoteControlToggle }
             remoteControlState = { remoteControlState } />
+        );
+    }
+
+    if (thumbnailMenu && remoteAndroidControlAvailable) {
+        const remoteAndroidControlState = !remoteAndroidControlAvailable 
+            ? REMOTE_ANDROID_CONTROL_BUTTON_STATES.NOT_AVAILABLE
+            : (remoteAndroidControlActive && remoteAndroidControlControlled === _getCurrentParticipantId())
+                ? REMOTE_ANDROID_CONTROL_BUTTON_STATES.ACTIVE
+                : REMOTE_ANDROID_CONTROL_BUTTON_STATES.AVAILABLE;
+
+        const onRemoteAndroidControlToggle = useCallback(() => {
+            if (remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.ACTIVE) {
+                dispatch(stopRemoteAndroidControl());
+            } else if (remoteAndroidControlState === REMOTE_ANDROID_CONTROL_BUTTON_STATES.AVAILABLE) {
+                dispatch(startRemoteAndroidControl(_getCurrentParticipantId()));
+            }
+        }, [ dispatch, remoteAndroidControlState, stopRemoteAndroidControl, startRemoteAndroidControl ]);
+
+        buttons2.push(<RemoteAndroidControlButton
+            { ...getButtonProps(BUTTONS.REMOTE_ANDROID_CONTROL) }
+            onClick = { onRemoteAndroidControlToggle }
+            remoteAndroidControlState = { remoteAndroidControlState } />
         );
     }
 
