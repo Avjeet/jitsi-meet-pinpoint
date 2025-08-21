@@ -1,5 +1,6 @@
 import { IStore } from '../app/types';
 import { IJitsiConference } from '../base/conference/reducer';
+import { getLocalParticipant, isParticipantModerator } from '../base/participants/functions';
 import { showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 
@@ -50,6 +51,16 @@ export function startRemoteAndroidControl(participantId: string) {
         const { conference } = state['features/base/conference'];
         
         if (!conference) {
+            return;
+        }
+
+        // Check if the local participant is a moderator
+        const localParticipant = getLocalParticipant(state);
+        if (!isParticipantModerator(localParticipant)) {
+            dispatch(showNotification({
+                descriptionKey: 'remoteAndroidControl.moderatorRequired',
+                titleKey: 'remoteAndroidControl.error'
+            }, NOTIFICATION_TIMEOUT_TYPE.MEDIUM));
             return;
         }
         
