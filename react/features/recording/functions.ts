@@ -443,14 +443,16 @@ export function shouldRequireRecordingConsent(recorderSession: any, state: IRedu
         = state['features/dynamic-branding'] || {};
     const { conference } = state['features/base/conference'] || {};
     const { requireConsent, skipConsentInMeeting } = state['features/base/config'].recordings || {};
-    const { iAmRecorder } = state['features/base/config'];
+    const { iAmRecorder, testing: { showSpotConsentDialog = false } = {} } = state['features/base/config'];
     const { consentRequested } = state['features/recording'];
 
     if (iAmRecorder) {
         return false;
     }
 
-    if (isSpotTV()) {
+    // For Spot TV instances, check the showSpotConsentDialog config parameter
+    // If showSpotConsentDialog is false (or undefined, defaulting to false), don't show consent dialog
+    if (isSpotTV(state) && !showSpotConsentDialog) {
         return false;
     }
 
@@ -469,11 +471,14 @@ export function shouldRequireRecordingConsent(recorderSession: any, state: IRedu
         return false;
     }
 
+    // lib-jitsi-meet may set a JitsiParticipant as the initiator of the recording session or the
+    // JID resource in case it cannot find it. We need to handle both cases.
     const initiator = recorderSession.getInitiator();
+    const initiatorId = initiator?.getId?.() ?? initiator;
 
-    if (!initiator || recorderSession.getStatus() === JitsiRecordingConstants.status.OFF) {
+    if (!initiatorId || recorderSession.getStatus() === JitsiRecordingConstants.status.OFF) {
         return false;
     }
 
-    return initiator !== getLocalParticipant(state)?.id;
+    return initiatorId !== getLocalParticipant(state)?.id;
 }

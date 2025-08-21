@@ -73,7 +73,7 @@ export const THRESHOLDS = [
 export const NATIVE_THRESHOLDS = [
     {
         width: 560,
-        order: [ 'microphone', 'camera', 'chat', 'screensharing', 'raisehand', 'tileview', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'chat', 'desktop', 'raisehand', 'tileview', 'overflowmenu', 'hangup' ]
     },
     {
         width: 500,
@@ -202,7 +202,7 @@ export const NATIVE_TOOLBAR_BUTTONS: NativeToolbarButton[] = [
     'microphone',
     'overflowmenu',
     'raisehand',
-    'screensharing',
+    'desktop',
     'tileview'
 ];
 
@@ -214,6 +214,7 @@ export const VISITORS_MODE_BUTTONS: ToolbarButton[] = [
     'closedcaptions',
     'fullscreen',
     'hangup',
+    'participants-pane',
     'raisehand',
     'settings',
     'stats',

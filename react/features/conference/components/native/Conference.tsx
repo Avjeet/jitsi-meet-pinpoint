@@ -46,9 +46,9 @@ import Toolbox from '../../../toolbox/components/native/Toolbox';
 import { isToolboxVisible } from '../../../toolbox/functions.native';
 import {
     AbstractConference,
+    type AbstractProps,
     abstractMapStateToProps
 } from '../AbstractConference';
-import type { AbstractProps } from '../AbstractConference';
 import { isConnecting } from '../functions.native';
 
 import AlwaysOnLabels from './AlwaysOnLabels';
@@ -579,7 +579,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
     const { startCarMode } = state['features/base/settings'];
     const { enabled: audioOnlyEnabled } = state['features/base/audio-only'];
     const brandingStyles = backgroundColor ? {
-        backgroundColor
+        background: backgroundColor
     } : undefined;
 
     return {

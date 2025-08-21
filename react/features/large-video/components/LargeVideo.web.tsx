@@ -209,7 +209,7 @@ class LargeVideo extends Component<IProps> {
             _showSubtitles
         } = this.props;
         const style = this._getCustomStyles();
-        const className = `videocontainer${_isChatOpen ? ' shift-right' : ''}`;
+        const className = 'videocontainer';
 
         return (
             <div
@@ -317,12 +317,12 @@ class LargeVideo extends Component<IProps> {
             _visibleFilmstrip
         } = this.props;
 
-        styles.backgroundColor = _customBackgroundColor || interfaceConfig.DEFAULT_BACKGROUND;
+        styles.background = _customBackgroundColor || interfaceConfig.DEFAULT_BACKGROUND;
 
         if (this.props._backgroundAlpha !== undefined) {
             const alphaColor = setColorAlpha(styles.backgroundColor, this.props._backgroundAlpha);
 
-            styles.backgroundColor = alphaColor;
+            styles.background = alphaColor;
         }
 
         if (_customBackgroundImageUrl) {
@@ -383,7 +383,7 @@ function _mapStateToProps(state: IReduxState) {
         _customBackgroundColor: backgroundColor,
         _customBackgroundImageUrl: backgroundImageUrl,
         _displayScreenSharingPlaceholder:
-            Boolean(isLocalScreenshareOnLargeVideo && !seeWhatIsBeingShared && !isSpotTV()),
+            Boolean(isLocalScreenshareOnLargeVideo && !seeWhatIsBeingShared && !isSpotTV(state)),
         _hideSelfView: getHideSelfView(state),
         _isChatOpen: isChatOpen,
         _isDisplayNameVisible: isDisplayNameVisible(state),

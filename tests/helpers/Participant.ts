@@ -13,7 +13,11 @@ import IframeAPI from '../pageobjects/IframeAPI';
 import InviteDialog from '../pageobjects/InviteDialog';
 import LargeVideo from '../pageobjects/LargeVideo';
 import LobbyScreen from '../pageobjects/LobbyScreen';
-import Notifications from '../pageobjects/Notifications';
+import Notifications, {
+    MAX_USERS_TEST_ID,
+    TOKEN_AUTH_FAILED_TEST_ID,
+    TOKEN_AUTH_FAILED_TITLE_TEST_ID
+} from '../pageobjects/Notifications';
 import ParticipantsPane from '../pageobjects/ParticipantsPane';
 import PasswordDialog from '../pageobjects/PasswordDialog';
 import PreJoinScreen from '../pageobjects/PreJoinScreen';
@@ -21,21 +25,17 @@ import SecurityDialog from '../pageobjects/SecurityDialog';
 import SettingsDialog from '../pageobjects/SettingsDialog';
 import Toolbar from '../pageobjects/Toolbar';
 import VideoQualityDialog from '../pageobjects/VideoQualityDialog';
+import Visitors from '../pageobjects/Visitors';
 
+import { config as testsConfig } from './TestsConfig';
 import { LOG_PREFIX, logInfo } from './browserLogger';
-import { IContext, IJoinOptions } from './types';
+import { IToken } from './token';
+import { IParticipantJoinOptions, IParticipantOptions } from './types';
 
 export const P1 = 'p1';
 export const P2 = 'p2';
 export const P3 = 'p3';
 export const P4 = 'p4';
-
-interface IWaitForSendReceiveDataOptions {
-    checkReceive?: boolean;
-    checkSend?: boolean;
-    msg?: string;
-    timeout?: number;
-}
 
 /**
  * Participant.
@@ -48,7 +48,17 @@ export class Participant {
      */
     private _name: string;
     private _endpointId: string;
-    private _jwt?: string;
+    /**
+     * The token that this participant was initialized with.
+     */
+    private _token?: IToken;
+
+    /**
+     * Cache the dial in pin code so that it doesn't have to be read from the UI.
+     */
+    private _dialInPin?: string;
+
+    private _iFrameApi: boolean = false;
 
     /**
      * The default config to use when joining.
@@ -106,14 +116,12 @@ export class Participant {
     } as IConfig;
 
     /**
-     * Creates a participant with given name.
-     *
-     * @param {string} name - The name of the participant.
-     * @param {string }jwt - The jwt if any.
+     * Creates a participant with given options.
      */
-    constructor(name: string, jwt?: string) {
-        this._name = name;
-        this._jwt = jwt;
+    constructor(options: IParticipantOptions) {
+        this._name = options.name;
+        this._token = options.token;
+        this._iFrameApi = options.iFrameApi || false;
     }
 
     /**
@@ -127,9 +135,10 @@ export class Participant {
             script: string | ((...innerArgs: InnerArguments) => ReturnValue),
             ...args: InnerArguments): Promise<ReturnValue> {
         try {
+            // @ts-ignore
             return await this.driver.execute(script, ...args);
         } catch (error) {
-            console.error('An error occured while trying to execute a script: ', error);
+            console.error('An error occurred while trying to execute a script: ', error);
             throw error;
         }
     }
@@ -176,13 +185,12 @@ export class Participant {
     /**
      * Joins conference.
      *
-     * @param {IContext} ctx - The context.
-     * @param {IJoinOptions} options - Options for joining.
+     * @param {IParticipantJoinOptions} options - Options for joining.
      * @returns {Promise<void>}
      */
-    async joinConference(ctx: IContext, options: IJoinOptions = {}): Promise<void> {
+    async joinConference(options: IParticipantJoinOptions): Promise<Participant> {
         const config = {
-            room: ctx.roomName,
+            room: options.roomName,
             configOverwrite: {
                 ...this.config,
                 ...options.configOverwrite || {}
@@ -199,54 +207,55 @@ export class Participant {
             };
         }
 
-        if (ctx.iframeAPI) {
+        if (this._iFrameApi) {
             config.room = 'iframeAPITest.html';
         }
 
         let url = urlObjectToString(config) || '';
 
-        if (ctx.iframeAPI) {
+        if (this._iFrameApi) {
             const baseUrl = new URL(this.driver.options.baseUrl || '');
 
             // @ts-ignore
-            url = `${this.driver.iframePageBase}${url}&domain="${baseUrl.host}"&room="${ctx.roomName}"`;
+            url = `${this.driver.iframePageBase}${url}&domain="${baseUrl.host}"&room="${options.roomName}"`;
 
-            if (process.env.IFRAME_TENANT) {
-                url = `${url}&tenant="${process.env.IFRAME_TENANT}"`;
+            if (testsConfig.iframe.tenant) {
+                url = `${url}&tenant="${testsConfig.iframe.tenant}"`;
             } else if (baseUrl.pathname.length > 1) {
                 // remove leading slash
                 url = `${url}&tenant="${baseUrl.pathname.substring(1)}"`;
             }
         }
-        if (this._jwt) {
-            url = `${url}&jwt="${this._jwt}"`;
+        if (this._token?.jwt) {
+            url = `${url}&jwt="${this._token.jwt}"`;
         }
 
         await this.driver.setTimeout({ 'pageLoad': 30000 });
 
-        let urlToLoad = url.startsWith('/') ? url.substring(1) : url;
+        // drop the leading '/' so we can use the tenant if any
+        url = url.startsWith('/') ? url.substring(1) : url;
 
-        if (options.preferGenerateToken && !ctx.iframeAPI && ctx.isJaasAvailable() && process.env.IFRAME_TENANT) {
-            // This to enables tests like invite, which can force using the jaas auth instead of the provided token
-            urlToLoad = `/${process.env.IFRAME_TENANT}/${urlToLoad}`;
+        if (options.forceTenant) {
+            url = `/${options.forceTenant}/${url}`;
         }
 
-        // drop the leading '/' so we can use the tenant if any
-        await this.driver.url(urlToLoad);
+        await this.driver.url(url);
 
         await this.waitForPageToLoad();
 
-        if (ctx.iframeAPI) {
+        if (this._iFrameApi) {
             const mainFrame = this.driver.$('iframe');
 
             await this.driver.switchFrame(mainFrame);
         }
 
         if (!options.skipWaitToJoin) {
-            await this.waitToJoinMUC();
+            await this.waitForMucJoinedOrError();
         }
 
         await this.postLoadProcess();
+
+        return this;
     }
 
     /**
@@ -291,11 +300,15 @@ export class Participant {
     /**
      * Waits for the page to load.
      *
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    async waitForPageToLoad(): Promise<void> {
+    async waitForPageToLoad(): Promise<boolean> {
         return this.driver.waitUntil(
-            () => this.execute(() => document.readyState === 'complete'),
+            () => this.execute(() => {
+                console.log(`${new Date().toISOString()} document.readyState: ${document.readyState}`);
+
+                return document.readyState === 'complete';
+            }),
             {
                 timeout: 30_000, // 30 seconds
                 timeoutMsg: `Timeout waiting for Page Load Request to complete for ${this.name}.`
@@ -322,11 +335,31 @@ export class Participant {
     }
 
     /**
+     * Waits until either the MUC is joined, or a password prompt is displayed, or an authentication failure
+     * notification is displayed, or max users notification is displayed.
+     */
+    async waitForMucJoinedOrError(): Promise<void> {
+        await this.driver.waitUntil(async () => {
+            return await this.isInMuc() || await this.getPasswordDialog().isOpen()
+                || await this.getNotifications().getNotificationText(MAX_USERS_TEST_ID)
+                || await this.getNotifications().getNotificationText(TOKEN_AUTH_FAILED_TEST_ID)
+                || await this.getNotifications().getNotificationText(TOKEN_AUTH_FAILED_TITLE_TEST_ID);
+        }, {
+            timeout: 10_000,
+            timeoutMsg: 'Timeout waiting for MUC joined or error.'
+        });
+    }
+
+    /**
      * Checks if the participant is a moderator in the meeting.
      */
     async isModerator() {
         return await this.execute(() => typeof APP !== 'undefined'
             && APP.store?.getState()['features/base/participants']?.local?.role === 'moderator');
+    }
+
+    async isVisitor() {
+        return await this.execute(() => APP?.store?.getState()['features/visitors']?.iAmVisitor || false);
     }
 
     /**
@@ -363,9 +396,9 @@ export class Participant {
     /**
      * Waits for ICE to get connected.
      *
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    waitForIceConnected(): Promise<void> {
+    waitForIceConnected(): Promise<boolean> {
         return this.driver.waitUntil(() =>
             this.execute(() => APP?.conference?.getConnectionState() === 'connected'), {
             timeout: 15_000,
@@ -376,9 +409,9 @@ export class Participant {
     /**
      * Waits for ICE to get connected on the p2p connection.
      *
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    waitForP2PIceConnected(): Promise<void> {
+    waitForP2PIceConnected(): Promise<boolean> {
         return this.driver.waitUntil(() =>
             this.execute(() => APP?.conference?.getP2PConnectionState() === 'connected'), {
             timeout: 15_000,
@@ -387,37 +420,50 @@ export class Participant {
     }
 
     /**
-     * Waits for send and receive data.
+     * Waits until the conference stats show positive upload and download bitrate (independently).
      *
-     * @param {Object} options
-     * @param {boolean} options.checkSend - If true we will chec
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    waitForSendReceiveData({
-        checkSend = true,
-        checkReceive = true,
-        timeout = 15_000,
-        msg
-    } = {} as IWaitForSendReceiveDataOptions): Promise<void> {
-        if (!checkSend && !checkReceive) {
-            return Promise.resolve();
-        }
+    async waitForSendReceiveData(timeout = 15_000, msg?: string): Promise<boolean> {
+        const values = await Promise.all([
+            await this.waitForSendMedia(timeout, msg ? `${msg} (send)` : undefined),
+            await this.waitForReceiveMedia(timeout, msg ? `${msg} (receive)` : undefined)
+        ]);
 
-        const lMsg = msg ?? `expected to ${
-            checkSend && checkReceive ? 'receive/send' : checkSend ? 'send' : 'receive'} data in 15s for ${this.name}`;
+        return values[0] && values[1];
+    }
 
-        return this.driver.waitUntil(() => this.execute((pCheckSend: boolean, pCheckReceive: boolean) => {
-            const stats = APP?.conference?.getStats();
-            const bitrateMap = stats?.bitrate || {};
-            const rtpStats = {
-                uploadBitrate: bitrateMap.upload || 0,
-                downloadBitrate: bitrateMap.download || 0
-            };
+    /**
+     * Waits until the conference stats show positive upload bitrate.
+     * @param timeout max time to wait in ms
+     * @param timeoutMsg the message to log if the timeout is reached
+     */
+    async waitForSendMedia(
+            timeout = 15_000,
+            timeoutMsg = `expected to send media in ${timeout / 1000}s for ${this.name}`): Promise<boolean> {
 
-            return (rtpStats.uploadBitrate > 0 || !pCheckSend) && (rtpStats.downloadBitrate > 0 || !pCheckReceive);
-        }, checkSend, checkReceive), {
+        return this.driver.waitUntil(() => this.execute(() => {
+            return APP?.conference?.getStats()?.bitrate?.upload > 0;
+        }), {
             timeout,
-            timeoutMsg: lMsg
+            timeoutMsg
+        });
+    }
+
+    /**
+     * Waits until the conference stats show positive upload bitrate.
+     * @param timeout max time to wait in ms
+     * @param timeoutMsg the message to log if the timeout is reached
+     */
+    async waitForReceiveMedia(
+            timeout = 15_000,
+            timeoutMsg = `expected to receive media in ${timeout / 1000}s for ${this.name}`): Promise<boolean> {
+
+        return this.driver.waitUntil(() => this.execute(() => {
+            return APP?.conference?.getStats()?.bitrate?.download > 0;
+        }), {
+            timeout,
+            timeoutMsg
         });
     }
 
@@ -425,9 +471,9 @@ export class Participant {
      * Waits for remote streams.
      *
      * @param {number} number - The number of remote streams to wait for.
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    async waitForRemoteStreams(number: number): Promise<void> {
+    async waitForRemoteStreams(number: number): Promise<boolean> {
         return await this.driver.waitUntil(async () => await this.execute(
             count => (APP?.conference?.getNumberOfParticipantsWithTracks() ?? -1) >= count,
             number
@@ -438,13 +484,13 @@ export class Participant {
     }
 
     /**
-     * Waits for number of participants.
+     * Waits until the number of participants is exactly the given number.
      *
      * @param {number} number - The number of participant to wait for.
      * @param {string} msg - A custom message to use.
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>}
      */
-    waitForParticipants(number: number, msg?: string): Promise<void> {
+    waitForParticipants(number: number, msg?: string): Promise<boolean> {
         return this.driver.waitUntil(
             () => this.execute(count => (APP?.conference?.listMembers()?.length ?? -1) === count, number),
             {
@@ -568,6 +614,16 @@ export class Participant {
     getLobbyScreen(): LobbyScreen {
         return new LobbyScreen(this);
     }
+
+    /**
+     * Returns the Visitors page object.
+     *
+     * @returns {Visitors}
+     */
+    getVisitors(): Visitors {
+        return new Visitors(this);
+    }
+
 
     /**
      * Switches to the iframe API context
@@ -871,5 +927,27 @@ export class Participant {
     waitForDominantSpeaker(endpointId: string) {
         return this.driver.$(`//span[@id="participant_${endpointId}" and contains(@class, "dominant-speaker")]`)
             .waitForDisplayed({ timeout: 5_000 });
+    }
+
+    /**
+     * Returns the token that this participant was initialized with.
+     */
+    getToken(): IToken | undefined {
+        return this._token;
+    }
+
+    /**
+     * Gets the dial in pin for the conference. Reads it from the invite dialog if the pin hasn't been cached yet.
+     */
+    async getDialInPin(): Promise<string> {
+        if (!this._dialInPin) {
+            const dialInPin = await this.getInviteDialog().getPinNumber();
+
+            await this.getInviteDialog().clickCloseButton();
+
+            this._dialInPin = dialInPin;
+        }
+
+        return this._dialInPin;
     }
 }

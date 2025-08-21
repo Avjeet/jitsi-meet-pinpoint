@@ -1,13 +1,14 @@
 import { appNavigate } from '../../app/actions.native';
 import { IStore } from '../../app/types';
 import { getCustomerDetails } from '../../jaas/actions.any';
-import { isVpaasMeeting, getJaasJWT } from '../../jaas/functions';
+import { getJaasJWT, isVpaasMeeting } from '../../jaas/functions';
 import { navigateRoot } from '../../mobile/navigation/rootNavigationContainerRef';
 import { screen } from '../../mobile/navigation/routes';
 import { setJWT } from '../jwt/actions';
 import { JitsiConnectionErrors } from '../lib-jitsi-meet';
 
 import { _connectInternal } from './actions.native';
+import logger from './logger';
 
 export * from './actions.any';
 
@@ -34,6 +35,8 @@ export function connect(id?: string, password?: string) {
                     j && dispatch(setJWT(j));
 
                     return dispatch(_connectInternal(id, password));
+                }).catch(e => {
+                    logger.error('Connection error', e);
                 });
         }
 
