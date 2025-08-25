@@ -442,6 +442,13 @@
         "remoteControlShareScreenWarning": "Note that if you press \"Allow\" you will share your screen!",
         "remoteControlStopMessage": "The remote control session ended!",
         "remoteControlTitle": "Remote desktop control",
+        "remoteAndroidControl": {
+            "start": "Start remote Android control",
+            "stop": "Stop remote Android control", 
+            "started": "Remote Android control started",
+            "stopped": "Remote Android control stopped",
+            "title": "Remote Android Control"
+        },
         "remoteUserControls": "Remote user controls of {{username}}",
         "removePassword": "Remove $t(lockRoomPassword)",
         "removeSharedVideoMsg": "Are you sure you would like to remove your shared video?",
